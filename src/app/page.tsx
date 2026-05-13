@@ -14,7 +14,8 @@ export default function Home() {
   async function handleSend() {
     if (!input.trim()) return
     setLoading(true)
-    setReply('思考中...（本地 14B 模型首次加载可能需要 5-10 秒）')
+    // setReply('思考中...（本地 14B 模型首次加载可能需要 5-10 秒）')
+    setReply('思考中...（本地 7B 模型首次加载可能需要 5-10 秒）')
     
     const res = await chatWithAI(input)
     

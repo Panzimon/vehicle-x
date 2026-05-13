@@ -5,7 +5,7 @@ import ollama from 'ollama'
 export async function chatWithAI(message: string) {
   try {
     const response = await ollama.chat({
-      model: 'qwen2.5:14b',
+      model: 'qwen2.5:7b',
       messages: [{ role: 'user', content: message }],
     })
     

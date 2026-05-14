@@ -30,3 +30,14 @@ export const SearchCarArgsSchema = z.object({
 })
 
 export type SearchCarArgs = z.infer<typeof SearchCarArgsSchema>
+
+export const GetCarDetailArgsSchema = z.object({
+  car_id: z.string().min(1, '车型 ID 不能为空'),
+})
+
+export const CompareCarsArgsSchema = z.object({
+  car_ids: z.array(z.string().min(1)).min(2, '至少需要 2 款车对比'),
+})
+
+export type GetCarDetailArgs = z.infer<typeof GetCarDetailArgsSchema>
+export type CompareCarsArgs = z.infer<typeof CompareCarsArgsSchema>

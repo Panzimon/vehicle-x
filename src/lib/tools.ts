@@ -13,13 +13,8 @@ export const tools = [
           energy_type: {
             type: "string",
             enum: ["纯电", "插混", "增程", "燃油"],
-            description: "能源类型（可选）",
           },
-          body_type: {
-            type: "string",
-            enum: ["轿车", "SUV", "MPV"],
-            description: "车身类型（可选）",
-          },
+          body_type: { type: "string", enum: ["轿车", "SUV", "MPV"] },
           scene_tag: {
             type: "string",
             description: '用车场景标签，如"露营"、"通勤"、"家用"等（可选）',
@@ -29,7 +24,6 @@ export const tools = [
       },
     },
   },
-  // 新增：查单款车详情
   {
     type: "function",
     function: {
@@ -47,7 +41,6 @@ export const tools = [
       },
     },
   },
-  // 新增：对比多款车
   {
     type: "function",
     function: {

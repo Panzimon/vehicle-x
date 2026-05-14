@@ -3,20 +3,14 @@
 import ollama from "ollama";
 import { readFileSync } from "fs";
 import { join } from "path";
-import {
-  SearchCarArgsSchema,
-  CarSchema,
-  Car,
-  GetCarDetailArgsSchema,
-  CompareCarsArgsSchema,
-} from "@/lib/schema";
+import { SearchCarArgsSchema, CarSchema } from "@/lib/schema";
 import { z } from "zod";
 import { tools } from "@/lib/tools";
 
+// ========== 数据层 ==========
 function loadCars() {
   const path = join(process.cwd(), "data", "cars.json");
   const raw = JSON.parse(readFileSync(path, "utf-8"));
-
   // ========== normalize：加载时校验全部数据 ==========
   const result = z.array(CarSchema).safeParse(raw);
   if (!result.success) {
@@ -34,7 +28,7 @@ function searchCarByBudget(
   sceneTag?: string,
 ) {
   const cars = loadCars();
-  return cars.filter((car: Car) => {
+  return cars.filter((car) => {
     if (car.price < minPrice || car.price > maxPrice) return false;
     if (energyType && car.energy_type !== energyType) return false;
     if (bodyType && car.body_type !== bodyType) return false;
@@ -58,32 +52,45 @@ function compareCars(carIds: string[]) {
   return carIds.map((id) => cars.find((c) => c.id === id)).filter(Boolean);
 }
 
+// ========== zod Schema 定义 ==========
+const GetCarDetailArgsSchema = z.object({
+  car_id: z.string().min(1, "车型 ID 不能为空"),
+});
+
+const CompareCarsArgsSchema = z.object({
+  car_ids: z.array(z.string().min(1)).min(2, "至少需要 2 款车对比"),
+});
+
+// ========== 对外接口 ==========
 export async function chatWithAI(message: string) {
   try {
     // 第一次：判断是否需要工具
     const response = await ollama.chat({
-      model: "qwen2.5:7b", // 7B 做意图识别+工具调用，速度快
+      model: "qwen2.5:7b",
       messages: [
         {
           role: "system",
-          content:
-            "你是一位专业的汽车选购顾问。用户提出购车相关问题时，必须使用 search_car_by_budget 工具查询车型数据库。仔细分析用户的预算范围、能源类型偏好（纯电/插混/增程/燃油）和车身类型（轿车/SUV/MPV）。示例：用户说'20万以内的纯电轿车'，则调用 search_car_by_budget(min_price=0, max_price=20, energy_type='纯电', body_type='轿车')。",
+          content: `你是一位专业的汽车选购顾问。请根据用户需求选择正确的工具：
+
+1. **search_car_by_budget**：用户提到预算范围、价格区间、推荐车型、选车、适合某种场景（如露营、通勤）时调用。
+   示例："20万预算推荐纯电轿车"、"适合露营的SUV有哪些"
+
+2. **get_car_detail**：用户问某一款具体车型的详细参数、优缺点、怎么样时调用。
+   示例："特斯拉Model Y怎么样"、"比亚迪汉EV的续航多少"
+
+3. **compare_cars**：用户明确提到"对比"、"比较"、"哪个好"、"A和B怎么选"时调用。
+   示例："对比Model Y和理想L6"、"比亚迪汉和小米SU7哪个好"
+
+必须根据用户意图选择最匹配的工具，不要混用。`,
         },
         { role: "user", content: message },
       ],
       tools: tools as never,
     });
 
-    const toolCalls = response.message.tool_calls as
-      | Array<{
-          function: {
-            name: string;
-            arguments: unknown;
-          };
-        }>
-      | undefined;
+    // 处理工具调用
+    const toolCalls = (response.message as any).tool_calls;
     if (toolCalls && toolCalls.length > 0) {
-      // 支持并行调用：遍历所有 tool_calls，不是只取第一个
       const results: unknown[] = [];
       const toolsUsed: string[] = [];
 
@@ -95,7 +102,7 @@ export async function chatWithAI(message: string) {
             : call.function.arguments;
 
         let singleResult: unknown = null;
-
+        console.table(rawArgs);
         if (toolName === "search_car_by_budget") {
           const parseResult = SearchCarArgsSchema.safeParse(rawArgs);
           if (!parseResult.success) {
@@ -140,19 +147,19 @@ export async function chatWithAI(message: string) {
         toolsUsed.push(toolName);
       }
 
-      // 第二次：生成回复，强约束禁止幻觉
+      // 第二次：生成回复
       const finalResponse = await ollama.chat({
         model: "qwen2.5:7b",
         messages: [
           {
             role: "system",
             content:
-              "你是一位专业的汽车选购顾问。你的回答必须严格基于以下查询到的车型数据，禁止编造任何不存在的数据。回答格式：列出车型名称、价格、续航里程、核心优缺点，用简洁的中文。如果查询结果为空，请诚实告知用户没有找到符合条件的车型，并建议调整预算或条件。",
+              "你是一位专业的汽车选购顾问。你的回答必须严格基于以下查询到的车型数据，禁止编造任何不存在的数据。如果查询结果为空，请诚实告知用户没有找到符合条件的车型，并建议调整预算或条件。",
           },
           { role: "user", content: message },
           {
-            role: "tool",
-            content: `【查询结果】以下是从数据库中查到的真实车型数据（共${results.length}款）：\n${JSON.stringify(results, null, 2)}`,
+            role: "assistant",
+            content: `【查询结果】共执行 ${results.length} 个工具查询：\n${JSON.stringify(results, null, 2)}\n\n请严格基于以上数据回答。禁止编造。`,
           },
         ],
       });
@@ -160,15 +167,15 @@ export async function chatWithAI(message: string) {
       return {
         success: true,
         content: finalResponse.message.content,
-        toolUsed: "search_car_by_budget",
+        toolUsed: toolsUsed.join(", "),
         toolResult: results,
       };
     }
 
+    // 没有触发工具
     return { success: true, content: response.message.content };
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("chatWithAI error:", error);
-    const errorMessage = error instanceof Error ? error.message : "调用失败";
-    return { success: false, error: errorMessage };
+    return { success: false, error: error.message || "调用失败" };
   }
 }

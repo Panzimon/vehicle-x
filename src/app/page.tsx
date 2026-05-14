@@ -5,26 +5,28 @@ import { chatWithAI } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { Car } from '@/lib/schema'
 
 export default function Home() {
   const [input, setInput] = useState('')
   const [reply, setReply] = useState('')
   const [loading, setLoading] = useState(false)
-  const [toolInfo, setToolInfo] = useState<{ name: string; result: Car[] } | null>(null)
+  const [toolInfo, setToolInfo] = useState<any>(null)
 
   async function handleSend() {
     if (!input.trim()) return
     setLoading(true)
-    setReply('思考中...（本地模型推理 + 工具调用）')
+    setReply('本地 7B 模型推理中...（首次加载约 30 秒，请稍候）')
     setToolInfo(null)
     
     const res = await chatWithAI(input)
-    console.table(res)
+    
     if (res.success) {
-      setReply(res.content ?? '')
+      setReply(res.content)
       if (res.toolUsed) {
-        setToolInfo({ name: res.toolUsed, result: res.toolResult as Car[] })
+        setToolInfo({ 
+          name: res.toolUsed, 
+          result: res.toolResult // 现在是一个数组：[{tool: 'xxx', data: [...]}, ...]
+        })
       }
     } else {
       setReply(res.error || '出错了')
@@ -49,15 +51,38 @@ export default function Home() {
             <span className="text-xs font-bold px-2 py-1 bg-blue-600 text-white rounded">🛠️ 工具调用</span>
             <span className="text-xs text-blue-800">{toolInfo.name}</span>
           </div>
-          <div className="text-xs text-blue-900 space-y-1">
-            <p className="font-semibold">查询结果（{toolInfo.result.length} 款车）：</p>
-            {toolInfo.result.map((car: Car) => (
-              <div key={car.id} className="flex gap-3 border-b border-blue-200 pb-1">
-                <span className="font-bold">{car.brand} {car.model}</span>
-                <span>{car.price}万</span>
-                <span>{car.energy_type}</span>
-                <span>{car.body_type}</span>
-                <span>续航{car.range}km</span>
+          
+          {/* 遍历多个工具调用结果 */}
+          <div className="space-y-3">
+            {toolInfo.result.map((item: any, idx: number) => (
+              <div key={idx} className="text-xs text-blue-900">
+                <p className="font-semibold border-b border-blue-200 pb-1 mb-1">
+                  {item.tool}（{Array.isArray(item.data) ? item.data.length : 1} 条结果）：
+                </p>
+                
+                {/* 数组结果：车型列表 */}
+                {Array.isArray(item.data) && item.data.map((car: any) => (
+                  <div key={car?.id || idx} className="flex gap-3 border-b border-blue-100 py-1">
+                    <span className="font-bold">{car?.brand} {car?.model}</span>
+                    <span>{car?.price}万</span>
+                    <span>{car?.energy_type}</span>
+                    <span>{car?.body_type}</span>
+                    <span>续航{car?.range}km</span>
+                  </div>
+                ))}
+                
+                {/* 单条结果：车型详情 */}
+                {!Array.isArray(item.data) && item.data && (
+                  <div className="py-1">
+                    <span className="font-bold">{item.data.brand} {item.data.model}</span>
+                    <span className="ml-2">{item.data.price}万 / {item.data.energy_type} / 续航{item.data.range}km</span>
+                  </div>
+                )}
+                
+                {/* 空结果 */}
+                {(!item.data || (Array.isArray(item.data) && item.data.length === 0)) && (
+                  <p className="text-blue-600 italic">无结果</p>
+                )}
               </div>
             ))}
           </div>
@@ -69,7 +94,7 @@ export default function Home() {
         <Input 
           value={input} 
           onChange={e => setInput(e.target.value)}
-          placeholder="试试：20万预算推荐纯电轿车 / 25万SUV适合露营的有哪些"
+          placeholder="试试：20万预算推荐纯电轿车 / 对比Model Y和理想L6 / 25万SUV露营"
           onKeyDown={e => e.key === 'Enter' && handleSend()}
           autoFocus
         />
@@ -77,6 +102,10 @@ export default function Home() {
           {loading ? '调用中...' : '发送'}
         </Button>
       </div>
+
+      <p className="text-xs text-gray-400 mt-4">
+        提示：模型会自动识别意图并调用工具。支持：查车型、查详情、对比多款车。
+      </p>
     </main>
   )
 }

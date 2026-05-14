@@ -5,7 +5,7 @@ import ollama from 'ollama'
 export async function chatWithAI(message: string) {
   try {
     const response = await ollama.chat({
-      model: 'qwen2.5:7b',  // 14B下完再切
+      model: 'qwen2.5:14b', // 14B 深度推理模型
       messages: [
         { 
           role: 'system', 

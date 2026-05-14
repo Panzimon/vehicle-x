@@ -2,10 +2,9 @@ import { CarSchema, Car } from '../src/lib/schema'
 import fs from 'fs'
 import path from 'path'
 
-const inputPath = path.join(__dirname, '../data/cars.json')
-const outputPath = path.join(__dirname, '../data/cars_normalized.json')
+const jsonPath = path.join(__dirname, '../data/cars.json')
 
-const rawData = JSON.parse(fs.readFileSync(inputPath, 'utf-8'))
+const rawData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'))
 
 function normalizeCar(raw: Partial<Car>) {
   return {
@@ -37,5 +36,5 @@ const validCars = normalized
 console.log('原始数据:', rawData.length, '款')
 console.log('清洗后有效数据:', validCars.length, '款')
 
-fs.writeFileSync(outputPath, JSON.stringify(validCars, null, 2), 'utf-8')
-console.log('已写入:', outputPath)
+fs.writeFileSync(jsonPath, JSON.stringify(validCars, null, 2), 'utf-8')
+console.log('已写入:', jsonPath)

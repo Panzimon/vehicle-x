@@ -1,5 +1,5 @@
 // 示例：把从网页/LLM 提取的脏数据，洗成标准格式
-import { CarSchema } from '../src/lib/schema'
+import { CarSchema, Car } from '../src/lib/schema'
 
 // 假设这是从网页爬的/LLM 提取的脏数据
 const rawDataFromWeb = [
@@ -13,12 +13,12 @@ const rawDataFromWeb = [
 ]
 
 // normalize 函数
-function normalizeCar(raw: any) {
+function normalizeCar(raw: Partial<Car>) {
   return {
     id: `${raw.brand}-${raw.model}-2024`.toLowerCase().replace(/\s+/g, '-'),
     brand: raw.brand,
     model: raw.model,
-    price: typeof raw.price === 'string' ? parseFloat(raw.price.replace('万', '')) : raw.price,
+    price: typeof raw.price === 'string' ? parseFloat((raw.price as string).replace('万', '')) : raw.price,
     energy_type: raw.energy_type?.includes('纯电') ? '纯电' : 
                  raw.energy_type?.includes('插混') ? '插混' : 
                  raw.energy_type?.includes('增程') ? '增程' : '燃油',
@@ -35,7 +35,7 @@ function normalizeCar(raw: any) {
 }
 
 // 清洗 + 校验
-const normalized = rawDataFromWeb.map(normalizeCar)
+const normalized = rawDataFromWeb.map((raw: unknown) => normalizeCar(raw as Partial<Car>))
 const validCars = normalized
   .map(car => CarSchema.safeParse(car))
   .filter(r => r.success)

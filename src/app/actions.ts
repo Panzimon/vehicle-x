@@ -3,8 +3,8 @@
 import ollama from 'ollama'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { SearchCarArgsSchema, CarSchema } from '@/lib/schema' // 新增
-import { z } from 'zod' // 新增
+import { SearchCarArgsSchema, CarSchema, Car } from '@/lib/schema'
+import { z } from 'zod'
 
 function loadCars() {
   const path = join(process.cwd(), 'data', 'cars.json')
@@ -27,7 +27,7 @@ function searchCarByBudget(
   sceneTag?: string,
 ) {
   const cars = loadCars();
-  return cars.filter((car: any) => {
+  return cars.filter((car: Car) => {
     if (car.price < minPrice || car.price > maxPrice) return false;
     if (energyType && car.energy_type !== energyType) return false;
     if (bodyType && car.body_type !== bodyType) return false;
@@ -87,10 +87,10 @@ export async function chatWithAI(message: string) {
         },
         { role: "user", content: message },
       ],
-      tools: tools as any,
+      tools,
     });
 
-    const toolCalls = (response.message as any).tool_calls;
+    const toolCalls = response.message.tool_calls as Array<{ function: { arguments: unknown } }> | undefined;
     if (toolCalls && toolCalls.length > 0) {
       const call = toolCalls[0];
       const rawArgs =
@@ -143,8 +143,9 @@ export async function chatWithAI(message: string) {
     }
 
     return { success: true, content: response.message.content };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("chatWithAI error:", error);
-    return { success: false, error: error.message || "调用失败" };
+    const errorMessage = error instanceof Error ? error.message : "调用失败";
+    return { success: false, error: errorMessage };
   }
 }

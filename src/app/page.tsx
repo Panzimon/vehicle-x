@@ -5,12 +5,13 @@ import { chatWithAI } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { Car } from '@/lib/schema'
 
 export default function Home() {
   const [input, setInput] = useState('')
   const [reply, setReply] = useState('')
   const [loading, setLoading] = useState(false)
-  const [toolInfo, setToolInfo] = useState<any>(null)
+  const [toolInfo, setToolInfo] = useState<{ name: string; result: Car[] } | null>(null)
 
   async function handleSend() {
     if (!input.trim()) return
@@ -19,9 +20,9 @@ export default function Home() {
     setToolInfo(null)
     
     const res = await chatWithAI(input)
-    
+    console.table(res)
     if (res.success) {
-      setReply(res.content)
+      setReply(res.content ?? '')
       if (res.toolUsed) {
         setToolInfo({ name: res.toolUsed, result: res.toolResult })
       }
@@ -50,7 +51,7 @@ export default function Home() {
           </div>
           <div className="text-xs text-blue-900 space-y-1">
             <p className="font-semibold">查询结果（{toolInfo.result.length} 款车）：</p>
-            {toolInfo.result.map((car: any) => (
+            {toolInfo.result.map((car: Car) => (
               <div key={car.id} className="flex gap-3 border-b border-blue-200 pb-1">
                 <span className="font-bold">{car.brand} {car.model}</span>
                 <span>{car.price}万</span>

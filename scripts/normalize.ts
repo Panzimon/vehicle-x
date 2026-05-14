@@ -1,18 +1,12 @@
-// 示例：把从网页/LLM 提取的脏数据，洗成标准格式
 import { CarSchema, Car } from '../src/lib/schema'
+import fs from 'fs'
+import path from 'path'
 
-// 假设这是从网页爬的/LLM 提取的脏数据
-const rawDataFromWeb = [
-  {
-    brand: '特斯拉',
-    model: 'Model Y',
-    price: '24.99万',      // 脏：带"万"字
-    energy_type: '纯电动',  // 脏：不是标准枚举
-    // 缺少很多字段...
-  }
-]
+const inputPath = path.join(__dirname, '../data/cars.json')
+const outputPath = path.join(__dirname, '../data/cars_normalized.json')
 
-// normalize 函数
+const rawData = JSON.parse(fs.readFileSync(inputPath, 'utf-8'))
+
 function normalizeCar(raw: Partial<Car>) {
   return {
     id: `${raw.brand}-${raw.model}-2024`.toLowerCase().replace(/\s+/g, '-'),
@@ -34,12 +28,14 @@ function normalizeCar(raw: Partial<Car>) {
   }
 }
 
-// 清洗 + 校验
-const normalized = rawDataFromWeb.map((raw: unknown) => normalizeCar(raw as Partial<Car>))
+const normalized = rawData.map((raw: unknown) => normalizeCar(raw as Partial<Car>))
 const validCars = normalized
-  .map(car => CarSchema.safeParse(car))
-  .filter(r => r.success)
-  .map(r => r.data)
+  .map((car: unknown) => CarSchema.safeParse(car))
+  .filter((r: { success: boolean }): r is { success: true; data: Car } => r.success)
+  .map((r: { data: Car }) => r.data)
 
+console.log('原始数据:', rawData.length, '款')
 console.log('清洗后有效数据:', validCars.length, '款')
-console.log(JSON.stringify(validCars, null, 2))
+
+fs.writeFileSync(outputPath, JSON.stringify(validCars, null, 2), 'utf-8')
+console.log('已写入:', outputPath)

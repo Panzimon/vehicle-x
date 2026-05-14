@@ -1,22 +1,23 @@
-'use server'
+"use server";
 
-import ollama from 'ollama'
-import { readFileSync } from 'fs'
-import { join } from 'path'
-import { SearchCarArgsSchema, CarSchema, Car } from '@/lib/schema'
-import { z } from 'zod'
+import ollama from "ollama";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { SearchCarArgsSchema, CarSchema, Car } from "@/lib/schema";
+import { z } from "zod";
+import { tools } from "@/lib/tools";
 
 function loadCars() {
-  const path = join(process.cwd(), 'data', 'cars.json')
-  const raw = JSON.parse(readFileSync(path, 'utf-8'))
-  
+  const path = join(process.cwd(), "data", "cars.json");
+  const raw = JSON.parse(readFileSync(path, "utf-8"));
+
   // ========== normalize：加载时校验全部数据 ==========
-  const result = z.array(CarSchema).safeParse(raw)
+  const result = z.array(CarSchema).safeParse(raw);
   if (!result.success) {
-    console.error('cars.json 数据格式错误:', result.error.issues)
-    throw new Error('车型数据校验失败，请检查 data/cars.json')
+    console.error("cars.json 数据格式错误:", result.error.issues);
+    throw new Error("车型数据校验失败，请检查 data/cars.json");
   }
-  return result.data
+  return result.data;
 }
 
 function searchCarByBudget(
@@ -41,40 +42,18 @@ function searchCarByBudget(
   });
 }
 
+function getCarDetail(carId: string) {
+  const cars = loadCars()
+  return cars.find(c => c.id === carId) || null
+}
+
+function compareCars(carIds: string[]) {
+  const cars = loadCars()
+  return carIds.map(id => cars.find(c => c.id === id)).filter(Boolean)
+}
+
 export async function chatWithAI(message: string) {
   try {
-    const tools = [
-      {
-        type: "function",
-        function: {
-          name: "search_car_by_budget",
-          description:
-            "根据用户预算、车型偏好和用车场景筛选车型。当用户提到预算、价格、买车、推荐车型、选车、适合某种场景（如露营、通勤）等需求时，必须调用此工具。",
-          parameters: {
-            type: "object",
-            properties: {
-              min_price: { type: "number", description: "最低预算（万元）" },
-              max_price: { type: "number", description: "最高预算（万元）" },
-              energy_type: {
-                type: "string",
-                enum: ["纯电", "插混", "增程", "燃油"],
-                description: "能源类型（可选）",
-              },
-              body_type: {
-                type: "string",
-                enum: ["轿车", "SUV", "MPV"],
-                description: "车身类型（可选）",
-              },
-              scene_tag: {
-                type: "string",
-                description: '用车场景标签，如"露营"、"通勤"、"家用"等（可选）',
-              },
-            },
-            required: ["min_price", "max_price"],
-          },
-        },
-      },
-    ];
 
     // 第一次：判断是否需要工具
     const response = await ollama.chat({
@@ -87,10 +66,12 @@ export async function chatWithAI(message: string) {
         },
         { role: "user", content: message },
       ],
-      tools,
+      tools: tools as never,
     });
 
-    const toolCalls = response.message.tool_calls as Array<{ function: { arguments: unknown } }> | undefined;
+    const toolCalls = response.message.tool_calls as
+      | Array<{ function: { arguments: unknown } }>
+      | undefined;
     if (toolCalls && toolCalls.length > 0) {
       const call = toolCalls[0];
       const rawArgs =
@@ -98,17 +79,19 @@ export async function chatWithAI(message: string) {
           ? JSON.parse(call.function.arguments)
           : call.function.arguments;
       console.table(rawArgs);
-      
+
       // ========== zod 校验工具参数 ==========
-      const parseResult = SearchCarArgsSchema.safeParse(rawArgs)
+      const parseResult = SearchCarArgsSchema.safeParse(rawArgs);
       if (!parseResult.success) {
-        console.error('工具参数校验失败:', parseResult.error.issues)
-        return { 
-          success: false, 
-          error: '模型输出的参数格式不对: ' + parseResult.error.issues.map(i => i.message).join(', ') 
-        }
+        console.error("工具参数校验失败:", parseResult.error.issues);
+        return {
+          success: false,
+          error:
+            "模型输出的参数格式不对: " +
+            parseResult.error.issues.map((i) => i.message).join(", "),
+        };
       }
-      const args = parseResult.data
+      const args = parseResult.data;
       const results = searchCarByBudget(
         args.min_price ?? 0,
         args.max_price ?? 100,

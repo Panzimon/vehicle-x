@@ -3,7 +3,13 @@
 import ollama from "ollama";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { SearchCarArgsSchema, CarSchema, Car } from "@/lib/schema";
+import {
+  SearchCarArgsSchema,
+  CarSchema,
+  Car,
+  GetCarDetailArgsSchema,
+  CompareCarsArgsSchema,
+} from "@/lib/schema";
 import { z } from "zod";
 import { tools } from "@/lib/tools";
 
@@ -43,18 +49,17 @@ function searchCarByBudget(
 }
 
 function getCarDetail(carId: string) {
-  const cars = loadCars()
-  return cars.find(c => c.id === carId) || null
+  const cars = loadCars();
+  return cars.find((c) => c.id === carId) || null;
 }
 
 function compareCars(carIds: string[]) {
-  const cars = loadCars()
-  return carIds.map(id => cars.find(c => c.id === id)).filter(Boolean)
+  const cars = loadCars();
+  return carIds.map((id) => cars.find((c) => c.id === id)).filter(Boolean);
 }
 
 export async function chatWithAI(message: string) {
   try {
-
     // 第一次：判断是否需要工具
     const response = await ollama.chat({
       model: "qwen2.5:7b", // 7B 做意图识别+工具调用，速度快
@@ -70,35 +75,70 @@ export async function chatWithAI(message: string) {
     });
 
     const toolCalls = response.message.tool_calls as
-      | Array<{ function: { arguments: unknown } }>
+      | Array<{
+          function: {
+            name: string;
+            arguments: unknown;
+          };
+        }>
       | undefined;
     if (toolCalls && toolCalls.length > 0) {
-      const call = toolCalls[0];
-      const rawArgs =
-        typeof call.function.arguments === "string"
-          ? JSON.parse(call.function.arguments)
-          : call.function.arguments;
-      console.table(rawArgs);
+      // 支持并行调用：遍历所有 tool_calls，不是只取第一个
+      const results: unknown[] = [];
+      const toolsUsed: string[] = [];
 
-      // ========== zod 校验工具参数 ==========
-      const parseResult = SearchCarArgsSchema.safeParse(rawArgs);
-      if (!parseResult.success) {
-        console.error("工具参数校验失败:", parseResult.error.issues);
-        return {
-          success: false,
-          error:
-            "模型输出的参数格式不对: " +
-            parseResult.error.issues.map((i) => i.message).join(", "),
-        };
+      for (const call of toolCalls) {
+        const toolName = call.function.name;
+        const rawArgs =
+          typeof call.function.arguments === "string"
+            ? JSON.parse(call.function.arguments)
+            : call.function.arguments;
+
+        let singleResult: unknown = null;
+
+        if (toolName === "search_car_by_budget") {
+          const parseResult = SearchCarArgsSchema.safeParse(rawArgs);
+          if (!parseResult.success) {
+            return {
+              success: false,
+              error: `search_car_by_budget 参数错误: ${parseResult.error.issues.map((i) => i.message).join(", ")}`,
+            };
+          }
+          const args = parseResult.data;
+          singleResult = searchCarByBudget(
+            args.min_price,
+            args.max_price,
+            args.energy_type,
+            args.body_type,
+            args.scene_tag,
+          );
+        } else if (toolName === "get_car_detail") {
+          const parseResult = GetCarDetailArgsSchema.safeParse(rawArgs);
+          if (!parseResult.success) {
+            return {
+              success: false,
+              error: `get_car_detail 参数错误: ${parseResult.error.issues.map((i) => i.message).join(", ")}`,
+            };
+          }
+          const args = parseResult.data;
+          singleResult = getCarDetail(args.car_id);
+        } else if (toolName === "compare_cars") {
+          const parseResult = CompareCarsArgsSchema.safeParse(rawArgs);
+          if (!parseResult.success) {
+            return {
+              success: false,
+              error: `compare_cars 参数错误: ${parseResult.error.issues.map((i) => i.message).join(", ")}`,
+            };
+          }
+          const args = parseResult.data;
+          singleResult = compareCars(args.car_ids);
+        } else {
+          return { success: false, error: `未知工具: ${toolName}` };
+        }
+
+        results.push({ tool: toolName, data: singleResult });
+        toolsUsed.push(toolName);
       }
-      const args = parseResult.data;
-      const results = searchCarByBudget(
-        args.min_price ?? 0,
-        args.max_price ?? 100,
-        args.energy_type,
-        args.body_type,
-        args.scene_tag,
-      );
 
       // 第二次：生成回复，强约束禁止幻觉
       const finalResponse = await ollama.chat({

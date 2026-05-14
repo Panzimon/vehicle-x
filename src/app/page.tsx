@@ -24,7 +24,7 @@ export default function Home() {
     if (res.success) {
       setReply(res.content ?? '')
       if (res.toolUsed) {
-        setToolInfo({ name: res.toolUsed, result: res.toolResult })
+        setToolInfo({ name: res.toolUsed, result: res.toolResult as Car[] })
       }
     } else {
       setReply(res.error || '出错了')

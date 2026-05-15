@@ -3,12 +3,16 @@
 import ollama from "ollama";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { SearchCarArgsSchema, CarSchema } from "@/lib/schema";
+import { SearchCarArgsSchema, CarSchema, Car } from "@/lib/schema";
 import { z } from "zod";
 import { tools } from "@/lib/tools";
+import { decomposeTasks, Task } from "@/lib/supervisor";import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
+let tempCars: Car[] = []
 // ========== 数据层 ==========
 function loadCars() {
+  if (tempCars.length > 0) return tempCars;
   const path = join(process.cwd(), "data", "cars.json");
   const raw = JSON.parse(readFileSync(path, "utf-8"));
   // ========== normalize：加载时校验全部数据 ==========
@@ -17,7 +21,39 @@ function loadCars() {
     console.error("cars.json 数据格式错误:", result.error.issues);
     throw new Error("车型数据校验失败，请检查 data/cars.json");
   }
-  return result.data;
+  tempCars = result.data
+  return tempCars
+}
+
+
+// 初始化高德 MCP Client（懒加载）
+let amapClient: Client | null = null
+
+async function getAmapClient() {
+  if (!amapClient) {
+    const transport = new StdioClientTransport({
+      command: 'npx',
+      args: ['-y', '@amap/amap-maps-mcp-server'],
+      env: { AMAP_MAPS_API_KEY: process.env.AMAP_KEY || '' }
+    })
+    amapClient = new Client({ name: 'vehicle-x', version: '1.0.0' }, { capabilities: {} })
+    await amapClient.connect(transport)
+  }
+  return amapClient
+}
+
+// 新增工具：路线规划
+async function planRoute(from: string, to: string) {
+  const client = await getAmapClient()
+  const result = await client.callTool({
+    name: 'amap_maps_direction',
+    arguments: {
+      origin: from,
+      destination: to,
+      strategy: 0 // 最快路线
+    }
+  })
+  return result
 }
 
 function searchCarByBudget(
@@ -27,19 +63,24 @@ function searchCarByBudget(
   bodyType?: string,
   sceneTag?: string,
 ) {
-  const cars = loadCars();
+  const cars = loadCars()
   return cars.filter((car) => {
-    if (car.price < minPrice || car.price > maxPrice) return false;
-    if (energyType && car.energy_type !== energyType) return false;
-    if (bodyType && car.body_type !== bodyType) return false;
+    if (car.price < minPrice || car.price > maxPrice) return false
+    if (energyType && car.energy_type !== energyType) return false
+    if (bodyType && car.body_type !== bodyType) return false
 
     if (sceneTag) {
-      const text = `${car.brand} ${car.model} ${car.tags.join(" ")} ${car.pros.join(" ")} ${car.cons.join(" ")}`;
-      if (!text.includes(sceneTag)) return false;
+      // 放宽匹配：tags、pros、cons 里任意一个包含 sceneTag 的关键词即可
+      const keywords = sceneTag.split(/[,，、]/).map(k => k.trim()).filter(Boolean)
+      const carText = `${car.tags.join(' ')} ${car.pros.join(' ')} ${car.cons.join(' ')} ${car.model}`
+      
+      // 只要有一个关键词匹配就返回
+      const matched = keywords.some(kw => carText.includes(kw))
+      if (!matched) return false
     }
 
-    return true;
-  });
+    return true
+  })
 }
 
 function getCarDetail(carId: string) {
@@ -61,6 +102,160 @@ const CompareCarsArgsSchema = z.object({
   car_ids: z.array(z.string().min(1)).min(2, "至少需要 2 款车对比"),
 });
 
+// ========== 工具执行器 ==========
+async function executeTool(task: Task) {
+  const { tool, params } = task
+
+  console.table({ tool, params })
+
+  if (tool === 'search_car_by_budget') {
+    const args = SearchCarArgsSchema.parse(params)
+    return {
+      tool,
+      data: searchCarByBudget(
+        args.min_price,
+        args.max_price,
+        args.energy_type,
+        args.body_type,
+        args.scene_tag,
+        // args.brand_keyword
+      ),
+    }
+  }
+  else if (tool === 'get_car_detail') {
+    const args = GetCarDetailArgsSchema.parse(params)
+    return { tool, data: getCarDetail(args.car_id) }
+  }
+  else if (tool === 'compare_cars') {
+    const args = CompareCarsArgsSchema.parse(params)
+    return { tool, data: compareCars(args.car_ids) }
+  }
+  else if (tool === 'plan_route') {
+  // Mock 数据，后面接高德 MCP 接入后替换
+  const from = params.from || '未知出发地'
+  const to = params.to || '未知目的地'
+  
+  // 如果是常见路线，返回 Mock 数据
+  if (from.includes('北京') && to.includes('天津')) {
+    return { 
+      tool, 
+      data: { 
+        from, 
+        to, 
+        distance: '120公里', 
+        duration: '1小时30分钟',
+        toll: '约50元',
+        route: '京哈高速 → 津蓟高速',
+        charging_stations: ['服务区快充站 x 3']
+      } 
+    }
+  }
+  
+  return { 
+    tool, 
+    data: { 
+      from, 
+      to, 
+      distance: '待计算', 
+      duration: '待计算',
+      note: '请提供具体城市名，如"北京到天津"'
+    } 
+  }
+}
+  else {
+    throw new Error(`未知工具: ${tool}`)
+  }
+}
+
+// ========== 复杂查询：Step 1 只搜索车型 ==========
+export async function complexQuery(message: string) {
+  const startTime = Date.now()
+
+  try {
+    // Step 1: Supervisor 拆解（只返回 search 任务）
+    const tasks = await decomposeTasks(message)
+    
+    // Step 2: 执行搜索
+    const searchTask = tasks[0]
+    const searchResult = await executeTool(searchTask)
+
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2)
+
+    return {
+      success: true,
+      content: '', // 不生成回复，前端自己展示列表
+      toolUsed: 'search_car_by_budget',
+      toolResult: [searchResult], // 车型列表
+      meta: {
+        tasks: 1,
+        parallel: false,
+        totalDuration: `${totalDuration}s`,
+        query: message,
+      },
+    }
+  } catch (error: any) {
+    console.error('complexQuery error:', error)
+    return chatWithAI(message)
+  }
+}
+
+// ========== Step 2: 用户选车后，查详情 ==========
+export async function getCarDetailAction(carId: string) {
+  const car = getCarDetail(carId)
+  return {
+    success: true,
+    data: car,
+    toolUsed: 'get_car_detail',
+  }
+}
+
+// ========== Step 3: 规划路线（接高德 MCP）==========
+export async function planRouteAction(from: string, to: string) {
+  try {
+    // 先尝试接高德 MCP
+    const client = await getAmapClient()
+    const result = await client.callTool({
+      name: 'amap_maps_direction',
+      arguments: {
+        origin: from,
+        destination: to,
+        strategy: 0
+      }
+    }) as any
+    
+    // 解析高德返回
+    const routeData = result?.content?.[0]?.text 
+      ? JSON.parse(result?.content[0].text) 
+      : result
+    
+    return {
+      success: true,
+      data: {
+        from,
+        to,
+        distance: routeData.route?.paths?.[0]?.distance 
+          ? `${(routeData.route.paths[0].distance / 1000).toFixed(1)}公里` 
+          : '未知',
+        duration: routeData.route?.paths?.[0]?.duration 
+          ? `${Math.ceil(routeData.route.paths[0].duration / 60)}分钟` 
+          : '未知',
+        tolls: routeData.route?.paths?.[0]?.tolls || '未知',
+        steps: routeData.route?.paths?.[0]?.steps?.map((s: any) => s.instruction).slice(0, 3) || [],
+      },
+      toolUsed: 'plan_route',
+    }
+  } catch (error: any) {
+    console.error('planRoute error:', error)
+    // 降级：返回错误信息
+    return {
+      success: false,
+      error: '路线规划失败：' + error.message,
+      data: { from, to, distance: '未知', duration: '未知' }
+    }
+  }
+}
+
+// ========== 单工具查询（保留，用于降级）==========
 // ========== 对外接口 ==========
 export async function chatWithAI(message: string) {
   try {

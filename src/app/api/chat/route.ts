@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   // 模型路由：简单聊天 7B，复杂问题 14B
   const isSimple = message.length < 20 && !message.includes('推荐') && !message.includes('对比') && !message.includes('预算')
   const model = isSimple ? 'qwen2.5:7b' : 'qwen2.5:14b'
-
+    console.log("using model:", model);
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
         })
 
         for await (const chunk of response) {
-          const text = chunk.message?.content || ''
+          const text = chunk.message?.content
           if (text) {
             controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ text })}\n\n`))
           }

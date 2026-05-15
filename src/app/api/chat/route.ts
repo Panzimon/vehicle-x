@@ -2,10 +2,10 @@ import { NextRequest } from 'next/server'
 import ollama from 'ollama'
 
 export async function POST(req: NextRequest) {
-  const { message, mode } = await req.json()
+  const { message } = await req.json()
 
-  // 模型路由：简单意图 7B，复杂推理 14B
-  const isSimple = !message.includes('对比') && !message.includes('推荐') && !message.includes('预算')
+  // 模型路由：简单聊天 7B，复杂问题 14B
+  const isSimple = message.length < 20 && !message.includes('推荐') && !message.includes('对比') && !message.includes('预算')
   const model = isSimple ? 'qwen2.5:7b' : 'qwen2.5:14b'
 
   const stream = new ReadableStream({

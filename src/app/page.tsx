@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { chatWithAI, complexQuery, getCarDetailAction, planRouteAction } from './actions'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
 import { Car } from '@/lib/schema'
 
@@ -17,10 +17,10 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>('chat')
   const [step, setStep] = useState<Step>('input');
   
-  // 搜索结果
   const [carList, setCarList] = useState<Car[]>([]);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [routeInfo, setRouteInfo] = useState<any>(null)
+  const [abortCtrl, setAbortCtrl] = useState<AbortController | null>(null)
 
   async function handleSend() {
     if (!input.trim()) return
@@ -28,54 +28,62 @@ export default function Home() {
     setReply('')
 
     if (mode === 'chat') {
-      // ========== SSE 流式聊天 ==========
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input })
-      })
+      abortCtrl?.abort()
+      const ctrl = new AbortController()
+      setAbortCtrl(ctrl)
 
-      const reader = res.body?.getReader()
-      const decoder = new TextDecoder()
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: input }),
+          signal: ctrl.signal,
+        })
 
-      if (!reader) {
-        setReply('连接失败')
-        setLoading(false)
-        return
-      }
+        if (!res.body) {
+          setReply('无法建立流式连接')
+          setLoading(false)
+          return
+        }
 
-      let fullText = ''
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
 
-        for (const line of lines) {
-          const data = line.slice(6)
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.text) {
-              fullText += parsed.text
-              setReply(fullText)
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed || !trimmed.startsWith('data:')) continue
+
+            const dataStr = trimmed.slice(5).trim()
+            if (dataStr === '[DONE]') continue
+
+            try {
+              const data = JSON.parse(dataStr)
+              if (data.text) {
+                setReply(prev => prev + data.text)
+              }
+            } catch {
+              // 忽略解析失败的行
             }
-            if (parsed.done) {
-              setLoading(false)
-            }
-            if (parsed.error) {
-              setReply(parsed.error)
-              setLoading(false)
-            }
-          } catch (error) {
-            // 忽略解析失败
-            console.warn('解析失败:', data, error)
           }
         }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          setReply('请求出错：' + err.message)
+        }
+      } finally {
+        setLoading(false)
+        setAbortCtrl(null)
       }
     } else {
-      // 智能决策：Step 1 搜索车型
       const res = await complexQuery(input) as any
       
       if (res.success && res.toolResult?.[0]?.data) {
@@ -90,7 +98,6 @@ export default function Home() {
     }
   }
 
-  // Step 2: 查看车型详情
   async function handleViewDetail(car: Car) {
     setLoading(true)
     setSelectedCar(car)
@@ -106,7 +113,6 @@ export default function Home() {
     setLoading(false)
   }
 
-  // Step 3: 规划路线
   async function handlePlanRoute(from: string, to: string) {
     setLoading(true)
     
@@ -123,6 +129,7 @@ export default function Home() {
   }
 
   function handleReset() {
+    abortCtrl?.abort()
     setStep('input')
     setCarList([])
     setSelectedCar(null)
@@ -132,121 +139,235 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">🚗 Vehicle-X AI 助手</h1>
-
-      {/* 模式选择 */}
-      <div className="flex gap-2 mb-4">
-        <Button variant={mode === 'chat' ? 'default' : 'outline'} onClick={() => { setMode('chat'); handleReset() }}>
-          💬 聊天
-        </Button>
-        <Button variant={mode === 'search' ? 'default' : 'outline'} onClick={() => { setMode('search'); handleReset() }}>
-          🔍 智能选车
-        </Button>
-      </div>
-
-      {/* 输入区（只在 input 步骤显示） */}
-      {step === 'input' && (
-        <div className="flex gap-2 mb-4">
-          <Input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder={mode === 'chat' ? '随便聊聊...' : '我预算25万，每天通勤60公里，周末露营'}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-          />
-          <Button onClick={handleSend} disabled={loading}>
-            {loading ? '搜索中...' : '发送'}
-          </Button>
+    <main className="min-h-screen bg-slate-50">
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">🚗 Vehicle-X AI 助手</h1>
+          <p className="text-sm text-slate-500 mt-1">智能选车 · 路线规划 · 汽车咨询</p>
         </div>
-      )}
 
-      {/* AI 回复区 */}
-      {reply && (
-        <Card className="p-4 mb-4 bg-gray-50">
-          <p className="whitespace-pre-wrap text-sm">{reply}</p>
-        </Card>
-      )}
+        {/* 模式切换 - Pill 样式 */}
+        <div className="inline-flex p-1 bg-white rounded-xl border border-slate-200 shadow-sm mb-6">
+          <button
+            onClick={() => { setMode('chat'); handleReset() }}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              mode === 'chat' 
+                ? 'bg-slate-900 text-white shadow-sm' 
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            💬 聊天
+          </button>
+          <button
+            onClick={() => { setMode('search'); handleReset() }}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              mode === 'search' 
+                ? 'bg-slate-900 text-white shadow-sm' 
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            🔍 智能选车
+          </button>
+        </div>
 
-      {/* Step 2: 车型列表（选择卡片） */}
-      {step === 'select_car' && carList.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 mb-4">
-          {carList.map((car) => (
-            <Card key={car.id} className="p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleViewDetail(car)}>
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg">{car.brand} {car.model}</h3>
-                  <p className="text-sm text-gray-600">{car.price}万 | {car.energy_type} | {car.body_type} | 续航{car.range}km</p>
-                  <div className="flex gap-2 mt-2">
-                    {car.tags.map(tag => (
-                      <span key={tag} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">{tag}</span>
-                    ))}
-                  </div>
-                </div>
-                <Button size="sm" variant="outline">查看详情 →</Button>
+        {/* 输入区 - 严格对齐 */}
+        {step === 'input' && (
+          <div className="flex gap-3 mb-6 items-stretch">
+            <Textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder={mode === 'chat' ? '随便聊聊...' : '我预算25万，每天通勤60公里，周末露营'}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              className="flex-1 min-h-[56px] max-h-[160px] py-3 text-sm resize-none rounded-xl border-slate-200 focus-visible:ring-slate-400 bg-white"
+            />
+            <Button 
+              onClick={handleSend} 
+              disabled={loading}
+              className="h-auto px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white"
+            >
+              {loading ? '...' : '发送'}
+            </Button>
+          </div>
+        )}
+
+        {/* AI 回复区 */}
+        {reply && (
+          <Card className="p-5 mb-6 bg-white border-slate-200 rounded-xl shadow-sm">
+            <div className="flex gap-3">
+              <div className="w-7 h-7 rounded-full bg-slate-900 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-white text-[10px] font-bold">AI</span>
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Step 3: 车型详情 + 操作按钮 */}
-      {step === 'show_detail' && selectedCar && (
-        <div className="space-y-4">
-          <Card className="p-4">
-            <h3 className="font-bold text-xl mb-2">{selectedCar.brand} {selectedCar.model}</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>💰 价格：{selectedCar.price}万</div>
-              <div>🔋 能源：{selectedCar.energy_type}</div>
-              <div>🚗 车身：{selectedCar.body_type}</div>
-              <div>📏 续航：{selectedCar.range}km</div>
-              <div>⚡ 零百：{selectedCar.acceleration}s</div>
-              <div>📦 后备箱：{selectedCar.trunk_volume}L</div>
-            </div>
-            <div className="mt-4">
-              <p className="text-sm font-semibold text-green-700">✅ 优点：{selectedCar.pros.join('、')}</p>
-              <p className="text-sm font-semibold text-red-700 mt-1">❌ 缺点：{selectedCar.cons.join('、')}</p>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap flex-1">{reply}</p>
             </div>
           </Card>
+        )}
 
-          <div className="flex gap-2">
-            <Input placeholder="出发地，如：北京市朝阳区" id="from-input" />
-            <Input placeholder="目的地，如：天津之眼" id="to-input" />
-            <Button onClick={() => {
-              const from = (document.getElementById('from-input') as HTMLInputElement)?.value
-              const to = (document.getElementById('to-input') as HTMLInputElement)?.value
-              if (from && to) handlePlanRoute(from, to)
-            }}>
-              规划路线
-            </Button>
-            <Button variant="outline" onClick={handleReset}>重新选车</Button>
+        {/* Step 2: 车型列表 */}
+        {step === 'select_car' && carList.length > 0 && (
+          <div className="space-y-3 mb-6">
+            {carList.map((car) => (
+              <Card 
+                key={car.id} 
+                className="p-4 bg-white border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer" 
+                onClick={() => handleViewDetail(car)}
+              >
+                <div className="flex justify-between items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-slate-900 truncate">{car.brand} {car.model}</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {car.price}万 · {car.energy_type} · {car.body_type} · 续航{car.range}km
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {car.tags.map(tag => (
+                        <span key={tag} className="text-[11px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md font-medium">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="ghost" className="shrink-0 text-slate-900 hover:bg-slate-100 h-8">
+                    详情 →
+                  </Button>
+                </div>
+              </Card>
+            ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Step 4: 路线结果 */}
-      {routeInfo && (
-        <Card className="p-4 bg-green-50 border-green-200">
-          <h3 className="font-bold mb-2">🗺️ 路线规划</h3>
-          <p className="text-sm">距离：{routeInfo.distance}</p>
-          <p className="text-sm">预计时间：{routeInfo.duration}</p>
-          <p className="text-sm">过路费：{routeInfo.tolls}</p>
-          {routeInfo.steps?.length > 0 && (
-            <div className="mt-2">
-              <p className="text-xs font-semibold">关键路段：</p>
-              {routeInfo.steps.map((step: string, i: number) => (
-                <p key={i} className="text-xs text-gray-600">• {step}</p>
-              ))}
+        {/* Step 3: 车型详情 */}
+        {step === 'show_detail' && selectedCar && (
+          <div className="space-y-4 mb-6">
+            <Card className="p-5 bg-white border-slate-200 rounded-xl shadow-sm">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-lg">
+                  🚗
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900">{selectedCar.brand} {selectedCar.model}</h3>
+                  <p className="text-xs text-slate-500">{selectedCar.price}万 · {selectedCar.energy_type}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+                {[
+                  { label: '价格', value: `${selectedCar.price}万` },
+                  { label: '能源', value: selectedCar.energy_type },
+                  { label: '车身', value: selectedCar.body_type },
+                  { label: '续航', value: `${selectedCar.range}km` },
+                  { label: '零百加速', value: `${selectedCar.acceleration}s` },
+                  { label: '后备箱', value: `${selectedCar.trunk_volume}L` },
+                ].map((item) => (
+                  <div key={item.label} className="bg-slate-50 rounded-lg p-3">
+                    <p className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">{item.label}</p>
+                    <p className="text-sm font-semibold text-slate-900">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
+                    优点
+                  </span>
+                  <p className="text-sm text-slate-700 leading-relaxed">{selectedCar.pros.join('、')}</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
+                    缺点
+                  </span>
+                  <p className="text-sm text-slate-700 leading-relaxed">{selectedCar.cons.join('、')}</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 bg-white border-slate-200 rounded-xl shadow-sm">
+              <div className="flex flex-col md:flex-row gap-2">
+                <input 
+                  placeholder="出发地，如：北京市朝阳区" 
+                  id="from-input" 
+                  className="flex h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 flex-1 transition-all" 
+                />
+                <input 
+                  placeholder="目的地，如：天津之眼" 
+                  id="to-input" 
+                  className="flex h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 flex-1 transition-all" 
+                />
+                <Button 
+                  onClick={() => {
+                    const from = (document.getElementById('from-input') as HTMLInputElement)?.value
+                    const to = (document.getElementById('to-input') as HTMLInputElement)?.value
+                    if (from && to) handlePlanRoute(from, to)
+                  }}
+                  className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg h-10"
+                >
+                  规划路线
+                </Button>
+                <Button variant="outline" onClick={handleReset} className="rounded-lg border-slate-200 h-10 hover:bg-slate-50">
+                  重新选车
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Step 4: 路线结果 */}
+        {routeInfo && (
+          <Card className="p-5 bg-white border-slate-200 rounded-xl shadow-sm mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                <span className="text-green-700 text-xs">🗺</span>
+              </div>
+              <h3 className="font-semibold text-slate-900">路线规划结果</h3>
             </div>
-          )}
-        </Card>
-      )}
+            
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-[11px] text-slate-500 mb-1">距离</p>
+                <p className="text-sm font-semibold text-slate-900">{routeInfo.distance}</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-[11px] text-slate-500 mb-1">预计时间</p>
+                <p className="text-sm font-semibold text-slate-900">{routeInfo.duration}</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-[11px] text-slate-500 mb-1">过路费</p>
+                <p className="text-sm font-semibold text-slate-900">{routeInfo.tolls}</p>
+              </div>
+            </div>
+            
+            {routeInfo.steps?.length > 0 && (
+              <div className="bg-slate-50 rounded-lg p-4">
+                <p className="text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider">关键路段</p>
+                <div className="space-y-2">
+                  {routeInfo.steps.map((step: string, i: number) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <span className="text-xs font-mono text-slate-400 shrink-0 w-4">{i + 1}</span>
+                      <p className="text-sm text-slate-700 leading-relaxed">{step}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
 
-      {/* 返回按钮（非 input 步骤显示） */}
-      {step !== 'input' && (
-        <Button variant="ghost" size="sm" onClick={handleReset} className="mt-4">
-          ← 重新开始
-        </Button>
-      )}
+        {/* 返回按钮 */}
+        {step !== 'input' && (
+          <button 
+            onClick={handleReset} 
+            className="text-sm text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1.5 group"
+          >
+            <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
+            重新开始
+          </button>
+        )}
+      </div>
     </main>
   )
 }

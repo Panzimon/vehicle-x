@@ -8,6 +8,7 @@ import { z } from "zod";
 import { tools } from "@/lib/tools";
 import { decomposeTasks, Task } from "@/lib/supervisor";import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { text } from "stream/consumers";
 
 let tempCars: Car[] = []
 // ========== 数据层 ==========
@@ -42,18 +43,25 @@ async function getAmapClient() {
   return amapClient
 }
 
-// 新增工具：路线规划
-async function planRoute(from: string, to: string) {
-  const client = await getAmapClient()
-  const result = await client.callTool({
-    name: 'amap_maps_direction',
-    arguments: {
-      origin: from,
-      destination: to,
-      strategy: 0 // 最快路线
-    }
-  })
-  return result
+// 用 maps_geo 把地址转成经纬度
+async function getGeo(address: string): Promise<string> {
+  try {
+    const client = await getAmapClient();
+    const result = await client.callTool({
+      name: "maps_geo",
+      arguments: {
+        address // 直接传你的地址，比如 "广州市白云区**路**号"
+      }
+    }) as any;
+    const geoData = (result?.content?.[0]?.text 
+        ? JSON.parse(result?.content[0].text)
+        : result)
+    console.log('maps_geo 返回:', geoData)
+    return geoData?.return?.[0]?.location || '';
+  } catch (error) {
+    console.error('调用 maps_geo 失败:', error);
+    return '';
+  }
 }
 
 function searchCarByBudget(
@@ -131,37 +139,19 @@ async function executeTool(task: Task) {
     return { tool, data: compareCars(args.car_ids) }
   }
   else if (tool === 'plan_route') {
-  // Mock 数据，后面接高德 MCP 接入后替换
-  const from = params.from || '未知出发地'
-  const to = params.to || '未知目的地'
-  
-  // 如果是常见路线，返回 Mock 数据
-  if (from.includes('北京') && to.includes('天津')) {
-    return { 
-      tool, 
-      data: { 
-        from, 
-        to, 
-        distance: '120公里', 
-        duration: '1小时30分钟',
-        toll: '约50元',
-        route: '京哈高速 → 津蓟高速',
-        charging_stations: ['服务区快充站 x 3']
-      } 
+    const from = params.from || '未知出发地'
+    const to = params.to || '未知目的地'
+    
+    // 直接复用已有的 planRouteAction，它内部已经接好了高德 MCP
+    const result = await planRouteAction(from, to)
+    
+    if (!result.success) {
+      throw new Error(result.error || '路线规划失败')
     }
+    
+    // 统一返回 { tool, data }，和前面几个工具保持一致
+    return { tool, data: result.data }
   }
-  
-  return { 
-    tool, 
-    data: { 
-      from, 
-      to, 
-      distance: '待计算', 
-      duration: '待计算',
-      note: '请提供具体城市名，如"北京到天津"'
-    } 
-  }
-}
   else {
     throw new Error(`未知工具: ${tool}`)
   }
@@ -211,21 +201,29 @@ export async function getCarDetailAction(carId: string) {
 
 // ========== Step 3: 规划路线（接高德 MCP）==========
 export async function planRouteAction(from: string, to: string) {
+  console.log('planRouteAction', from, to)
   try {
     // 先尝试接高德 MCP
     const client = await getAmapClient()
+    // const tools = await client.listTools();
+    // console.log(tools); // 输出所有可用工具的列表，找到路径规划对应的正确名称
+    // 驾车路线规划（地址版，直接传地址）
     const result = await client.callTool({
-      name: 'amap_maps_direction',
+      name: 'maps_direction_driving', // ✅ 地址版工具名
       arguments: {
-        origin: from,
-        destination: to,
+        origin: await getGeo(from), // 起点地址，如 "北京市朝阳区阜通东大街6号"
+        destination: await getGeo(to),
         strategy: 0
       }
     }) as any
     
+    console.log('高德 MCP 返回:', result)
     // 解析高德返回
-    const routeData = result?.content?.[0]?.text 
-      ? JSON.parse(result?.content[0].text) 
+    const routeData = result?.isError === false ? (result?.content?.[0]?.text 
+      ? JSON.parse(result?.content[0].text)
+      : result)
+    : typeof result?.content?.[0]?.text === 'string'
+      ? result?.content[0].text
       : result
     
     return {
@@ -240,7 +238,7 @@ export async function planRouteAction(from: string, to: string) {
           ? `${Math.ceil(routeData.route.paths[0].duration / 60)}分钟` 
           : '未知',
         tolls: routeData.route?.paths?.[0]?.tolls || '未知',
-        steps: routeData.route?.paths?.[0]?.steps?.map((s: any) => s.instruction).slice(0, 3) || [],
+        steps: routeData.route?.paths?.[0]?.steps?.map((s: any) => s.instruction).slice(0, 10) || [],
       },
       toolUsed: 'plan_route',
     }

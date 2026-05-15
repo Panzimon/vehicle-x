@@ -186,33 +186,6 @@
     ]
   },
   {
-    "id": "byd-qin-dmi-2024",
-    "brand": "比亚迪",
-    "model": "秦 PLUS DM-i",
-    "price": 9.98,
-    "energy_type": "插混",
-    "body_type": "轿车",
-    "range": 1245,
-    "acceleration": 7.9,
-    "trunk_volume": 500,
-    "charging_time": 30,
-    "smart_drive_level": "L2",
-    "tags": [
-      "代步",
-      "省油",
-      "便宜"
-    ],
-    "pros": [
-      "油耗极低",
-      "价格杀手",
-      "绿牌免税"
-    ],
-    "cons": [
-      "底盘单薄",
-      "隔音一般"
-    ]
-  },
-  {
     "id": "tesla-model-3-2024",
     "brand": "特斯拉",
     "model": "Model 3",
@@ -718,33 +691,6 @@
     ]
   },
   {
-    "id": "wuling-binguo-2024",
-    "brand": "五菱",
-    "model": "缤果",
-    "price": 5.98,
-    "energy_type": "纯电",
-    "body_type": "轿车",
-    "range": 333,
-    "acceleration": 11.5,
-    "trunk_volume": 250,
-    "charging_time": 35,
-    "smart_drive_level": "L1",
-    "tags": [
-      "代步",
-      "可爱",
-      "便宜"
-    ],
-    "pros": [
-      "价格极低",
-      "造型可爱",
-      "好开好停"
-    ],
-    "cons": [
-      "续航短",
-      "动力弱"
-    ]
-  },
-  {
     "id": "geometry-c-2024",
     "brand": "几何",
     "model": "几何C",
@@ -769,33 +715,6 @@
     "cons": [
       "品牌认知度一般",
       "内饰简单"
-    ]
-  },
-  {
-    "id": "dongfeng-nammi-01-2024",
-    "brand": "东风纳米",
-    "model": "纳米01",
-    "price": 7.48,
-    "energy_type": "纯电",
-    "body_type": "轿车",
-    "range": 430,
-    "acceleration": 10.5,
-    "trunk_volume": 300,
-    "charging_time": 30,
-    "smart_drive_level": "L1",
-    "tags": [
-      "代步",
-      "长续航",
-      "实惠"
-    ],
-    "pros": [
-      "续航长",
-      "价格便宜",
-      "配置全"
-    ],
-    "cons": [
-      "品牌小众",
-      "动力一般"
     ]
   },
   {
@@ -1690,33 +1609,6 @@
     ]
   },
   {
-    "id": "leapmotor-t03-2024",
-    "brand": "零跑",
-    "model": "T03",
-    "price": 8.98,
-    "energy_type": "纯电",
-    "body_type": "轿车",
-    "range": 403,
-    "acceleration": 10,
-    "trunk_volume": 210,
-    "charging_time": 30,
-    "smart_drive_level": "L2",
-    "tags": [
-      "代步",
-      "便宜",
-      "智能"
-    ],
-    "pros": [
-      "价格极低",
-      "智能配置全",
-      "好开好停"
-    ],
-    "cons": [
-      "续航短",
-      "空间小"
-    ]
-  },
-  {
     "id": "leapmotor-c01-2024",
     "brand": "零跑",
     "model": "C01",
@@ -1768,33 +1660,6 @@
     "cons": [
       "品牌影响力弱",
       "续航一般"
-    ]
-  },
-  {
-    "id": "nezha-v-2024",
-    "brand": "哪吒",
-    "model": "V",
-    "price": 7.99,
-    "energy_type": "纯电",
-    "body_type": "SUV",
-    "range": 330,
-    "acceleration": 11,
-    "trunk_volume": 335,
-    "charging_time": 30,
-    "smart_drive_level": "L1",
-    "tags": [
-      "代步",
-      "便宜",
-      "入门"
-    ],
-    "pros": [
-      "价格极低",
-      "造型时尚",
-      "好开好停"
-    ],
-    "cons": [
-      "续航短",
-      "动力弱"
     ]
   },
   {
@@ -2173,33 +2038,6 @@
     "cons": [
       "车机卡顿",
       "油耗一般"
-    ]
-  },
-  {
-    "id": "geely-coolray-2024",
-    "brand": "吉利",
-    "model": "缤越",
-    "price": 9.98,
-    "energy_type": "插混",
-    "body_type": "SUV",
-    "range": 1000,
-    "acceleration": 7.6,
-    "trunk_volume": 390,
-    "charging_time": 30,
-    "smart_drive_level": "L2",
-    "tags": [
-      "小型SUV",
-      "年轻",
-      "性价比"
-    ],
-    "pros": [
-      "价格实惠",
-      "造型时尚",
-      "动力够用"
-    ],
-    "cons": [
-      "空间小",
-      "隔音一般"
     ]
   },
   {
@@ -2767,33 +2605,6 @@
     "cons": [
       "品牌认知度一般",
       "动力一般"
-    ]
-  },
-  {
-    "id": "isuzu-d-max-ev-2024",
-    "brand": "五十铃",
-    "model": "D-MAX EV",
-    "price": 24.98,
-    "energy_type": "纯电",
-    "body_type": "皮卡",
-    "range": 300,
-    "acceleration": 10,
-    "trunk_volume": 1000,
-    "charging_time": 30,
-    "smart_drive_level": "L2",
-    "tags": [
-      "皮卡",
-      "商用",
-      "可靠"
-    ],
-    "pros": [
-      "载货能力强",
-      "可靠性高",
-      "实用性好"
-    ],
-    "cons": [
-      "续航短",
-      "价格偏高"
     ]
   },
   {
@@ -3499,168 +3310,6 @@
     ]
   },
   {
-    "id": "bentley-bentayga-ev-2024",
-    "brand": "宾利",
-    "model": "Bentayga EV",
-    "price": 260,
-    "energy_type": "纯电",
-    "body_type": "SUV",
-    "range": 500,
-    "acceleration": 4,
-    "trunk_volume": 480,
-    "charging_time": 30,
-    "smart_drive_level": "L2+",
-    "tags": [
-      "超豪华",
-      "旗舰",
-      "奢华"
-    ],
-    "pros": [
-      "极致奢华",
-      "顶级品质",
-      "性能强劲"
-    ],
-    "cons": [
-      "价格极高",
-      "车身庞大"
-    ]
-  },
-  {
-    "id": "rolls-royce-spectre-2024",
-    "brand": "劳斯莱斯",
-    "model": "Spectre",
-    "price": 575,
-    "energy_type": "纯电",
-    "body_type": "轿车",
-    "range": 520,
-    "acceleration": 4.5,
-    "trunk_volume": 460,
-    "charging_time": 30,
-    "smart_drive_level": "L2+",
-    "tags": [
-      "超豪华",
-      "旗舰",
-      "奢华"
-    ],
-    "pros": [
-      "极致奢华",
-      "顶级工艺",
-      "舒适性极致"
-    ],
-    "cons": [
-      "价格极高",
-      "车身庞大"
-    ]
-  },
-  {
-    "id": "bugatti-chiron-ev-2024",
-    "brand": "布加迪",
-    "model": "Chiron EV",
-    "price": 3000,
-    "energy_type": "纯电",
-    "body_type": "轿车",
-    "range": 400,
-    "acceleration": 2,
-    "trunk_volume": 100,
-    "charging_time": 30,
-    "smart_drive_level": "L2",
-    "tags": [
-      "超跑",
-      "极致性能",
-      "限量"
-    ],
-    "pros": [
-      "性能极致",
-      "稀有珍贵",
-      "品牌传奇"
-    ],
-    "cons": [
-      "价格天价",
-      "实用性差"
-    ]
-  },
-  {
-    "id": "lamborghini-urus-ev-2024",
-    "brand": "兰博基尼",
-    "model": "Urus EV",
-    "price": 350,
-    "energy_type": "纯电",
-    "body_type": "SUV",
-    "range": 450,
-    "acceleration": 3,
-    "trunk_volume": 450,
-    "charging_time": 30,
-    "smart_drive_level": "L2",
-    "tags": [
-      "超豪华",
-      "性能SUV",
-      "极致"
-    ],
-    "pros": [
-      "性能极致",
-      "品牌传奇",
-      "奢华品质"
-    ],
-    "cons": [
-      "价格极高",
-      "实用性一般"
-    ]
-  },
-  {
-    "id": "ferrari-296-gtb-phev-2024",
-    "brand": "法拉利",
-    "model": "296 GTB PHEV",
-    "price": 348,
-    "energy_type": "插混",
-    "body_type": "轿车",
-    "range": 800,
-    "acceleration": 2.9,
-    "trunk_volume": 200,
-    "charging_time": 30,
-    "smart_drive_level": "L2",
-    "tags": [
-      "超跑",
-      "插混",
-      "极致性能"
-    ],
-    "pros": [
-      "性能极致",
-      "品牌传奇",
-      "混动技术"
-    ],
-    "cons": [
-      "价格极高",
-      "实用性差"
-    ]
-  },
-  {
-    "id": "maserati-granturismo-ev-2024",
-    "brand": "玛莎拉蒂",
-    "model": "GranTurismo EV",
-    "price": 268,
-    "energy_type": "纯电",
-    "body_type": "轿车",
-    "range": 450,
-    "acceleration": 2.7,
-    "trunk_volume": 300,
-    "charging_time": 30,
-    "smart_drive_level": "L2",
-    "tags": [
-      "超豪华",
-      "轿跑",
-      "性能"
-    ],
-    "pros": [
-      "性能出色",
-      "意式设计",
-      "品牌传奇"
-    ],
-    "cons": [
-      "价格极高",
-      "续航一般"
-    ]
-  },
-  {
     "id": "alfa-romeo-stelvio-phev-2024",
     "brand": "阿尔法·罗密欧",
     "model": "Stelvio PHEV",
@@ -3739,33 +3388,6 @@
     "cons": [
       "品牌认知度低",
       "售后网络不完善"
-    ]
-  },
-  {
-    "id": "rivian-r1t-2024",
-    "brand": "Rivian",
-    "model": "R1T",
-    "price": 68,
-    "energy_type": "纯电",
-    "body_type": "皮卡",
-    "range": 500,
-    "acceleration": 3,
-    "trunk_volume": 1000,
-    "charging_time": 30,
-    "smart_drive_level": "L2+",
-    "tags": [
-      "电动皮卡",
-      "越野",
-      "科技"
-    ],
-    "pros": [
-      "性能出色",
-      "越野能力强",
-      "科技配置高"
-    ],
-    "cons": [
-      "价格高",
-      "续航一般"
     ]
   },
   {
@@ -4660,33 +4282,6 @@
     ]
   },
   {
-    "id": "changan-lumin-2024",
-    "brand": "长安",
-    "model": "Lumin",
-    "price": 6.98,
-    "energy_type": "纯电",
-    "body_type": "轿车",
-    "range": 301,
-    "acceleration": 15,
-    "trunk_volume": 100,
-    "charging_time": 30,
-    "smart_drive_level": "L1",
-    "tags": [
-      "代步",
-      "可爱",
-      "便宜"
-    ],
-    "pros": [
-      "价格极低",
-      "造型可爱",
-      "好开好停"
-    ],
-    "cons": [
-      "续航短",
-      "动力弱"
-    ]
-  },
-  {
     "id": "changan-eado-ev-2024",
     "brand": "长安",
     "model": "逸动EV",
@@ -4819,33 +4414,6 @@
     "cons": [
       "品牌认知度低",
       "空间一般"
-    ]
-  },
-  {
-    "id": "jac-sehol-e10x-2024",
-    "brand": "江淮思皓",
-    "model": "E10X",
-    "price": 7.98,
-    "energy_type": "纯电",
-    "body_type": "轿车",
-    "range": 300,
-    "acceleration": 12,
-    "trunk_volume": 150,
-    "charging_time": 30,
-    "smart_drive_level": "L1",
-    "tags": [
-      "代步",
-      "便宜",
-      "入门"
-    ],
-    "pros": [
-      "价格极低",
-      "好开好停",
-      "实用性强"
-    ],
-    "cons": [
-      "续航短",
-      "动力弱"
     ]
   },
   {
@@ -7063,33 +6631,6 @@
     ]
   },
   {
-    "id": "baic-new-energy-ec5-2024",
-    "brand": "北汽新能源",
-    "model": "EC5",
-    "price": 9.98,
-    "energy_type": "纯电",
-    "body_type": "SUV",
-    "range": 300,
-    "acceleration": 12,
-    "trunk_volume": 380,
-    "charging_time": 35,
-    "smart_drive_level": "L1",
-    "tags": [
-      "代步",
-      "便宜",
-      "入门"
-    ],
-    "pros": [
-      "价格极低",
-      "好开好停",
-      "配置够用"
-    ],
-    "cons": [
-      "续航短",
-      "动力弱"
-    ]
-  },
-  {
     "id": "faw-red-flag-e-hs3-2024",
     "brand": "红旗",
     "model": "E-HS3",
@@ -8086,6 +7627,465 @@
     "cons": [
       "品牌影响力弱",
       "后排空间小"
+    ]
+  },
+  {
+    "id": "byd-e2-2024",
+    "brand": "比亚迪",
+    "model": "e2",
+    "price": 11.98,
+    "energy_type": "纯电",
+    "body_type": "轿车",
+    "range": 405,
+    "acceleration": 9.3,
+    "trunk_volume": 350,
+    "charging_time": 30,
+    "smart_drive_level": "L2",
+    "tags": [
+      "代步",
+      "性价比",
+      "家用"
+    ],
+    "pros": [
+      "价格实惠",
+      "好开好停",
+      "配置实用"
+    ],
+    "cons": [
+      "续航一般",
+      "动力一般"
+    ]
+  },
+  {
+    "id": "byd-e3-2024",
+    "brand": "比亚迪",
+    "model": "e3",
+    "price": 12.98,
+    "energy_type": "纯电",
+    "body_type": "轿车",
+    "range": 401,
+    "acceleration": 9.1,
+    "trunk_volume": 400,
+    "charging_time": 30,
+    "smart_drive_level": "L2",
+    "tags": [
+      "家用",
+      "通勤",
+      "实惠"
+    ],
+    "pros": [
+      "空间实用",
+      "价格实惠",
+      "配置够用"
+    ],
+    "cons": [
+      "续航一般",
+      "内饰简单"
+    ]
+  },
+  {
+    "id": "xiaomi-su7-max-ultra-2024",
+    "brand": "小米",
+    "model": "SU7 Max Ultra",
+    "price": 34.99,
+    "energy_type": "纯电",
+    "body_type": "轿车",
+    "range": 800,
+    "acceleration": 2.5,
+    "trunk_volume": 517,
+    "charging_time": 10,
+    "smart_drive_level": "L2++",
+    "tags": [
+      "性能",
+      "旗舰",
+      "智能"
+    ],
+    "pros": [
+      "加速极致",
+      "智驾强",
+      "科技感"
+    ],
+    "cons": [
+      "价格偏高",
+      "交付周期长"
+    ]
+  },
+  {
+    "id": "nio-et6-2024",
+    "brand": "蔚来",
+    "model": "ET6",
+    "price": 35.8,
+    "energy_type": "纯电",
+    "body_type": "轿车",
+    "range": 650,
+    "acceleration": 4.2,
+    "trunk_volume": 420,
+    "charging_time": 30,
+    "smart_drive_level": "L2++",
+    "tags": [
+      "豪华",
+      "换电",
+      "智驾"
+    ],
+    "pros": [
+      "换电便捷",
+      "智驾强",
+      "服务好"
+    ],
+    "cons": [
+      "价格偏高",
+      "续航一般"
+    ]
+  },
+  {
+    "id": "zeekr-005-2024",
+    "brand": "极氪",
+    "model": "005",
+    "price": 29.98,
+    "energy_type": "纯电",
+    "body_type": "SUV",
+    "range": 700,
+    "acceleration": 4.5,
+    "trunk_volume": 600,
+    "charging_time": 15,
+    "smart_drive_level": "L2+",
+    "tags": [
+      "性能",
+      "800V",
+      "豪华"
+    ],
+    "pros": [
+      "800V快充",
+      "加速强劲",
+      "空间大"
+    ],
+    "cons": [
+      "价格偏高",
+      "品牌认知度一般"
+    ]
+  },
+  {
+    "id": "xpeng-g8-2024",
+    "brand": "小鹏",
+    "model": "G8",
+    "price": 28.99,
+    "energy_type": "纯电",
+    "body_type": "SUV",
+    "range": 750,
+    "acceleration": 4,
+    "trunk_volume": 620,
+    "charging_time": 10,
+    "smart_drive_level": "L2++",
+    "tags": [
+      "800V",
+      "超快充",
+      "智驾"
+    ],
+    "pros": [
+      "800V超快充",
+      "XNGP智驾",
+      "性能出色"
+    ],
+    "cons": [
+      "价格偏高",
+      "内饰质感一般"
+    ]
+  },
+  {
+    "id": "deepal-s08-2024",
+    "brand": "深蓝",
+    "model": "S08",
+    "price": 22.99,
+    "energy_type": "纯电",
+    "body_type": "轿车",
+    "range": 680,
+    "acceleration": 4.8,
+    "trunk_volume": 490,
+    "charging_time": 30,
+    "smart_drive_level": "L2+",
+    "tags": [
+      "轿跑",
+      "性价比",
+      "智能"
+    ],
+    "pros": [
+      "轿跑造型",
+      "配置丰富",
+      "价格实惠"
+    ],
+    "cons": [
+      "品牌认知度一般",
+      "内饰简单"
+    ]
+  },
+  {
+    "id": "leapmotor-c12-2024",
+    "brand": "零跑",
+    "model": "C12",
+    "price": 17.98,
+    "energy_type": "纯电",
+    "body_type": "SUV",
+    "range": 620,
+    "acceleration": 5.5,
+    "trunk_volume": 580,
+    "charging_time": 30,
+    "smart_drive_level": "L2+",
+    "tags": [
+      "性价比",
+      "大空间",
+      "智能"
+    ],
+    "pros": [
+      "配置丰富",
+      "空间宽敞",
+      "价格实惠"
+    ],
+    "cons": [
+      "品牌认知度低",
+      "内饰一般"
+    ]
+  },
+  {
+    "id": "nezha-u-pro-2024",
+    "brand": "哪吒",
+    "model": "U Pro",
+    "price": 14.98,
+    "energy_type": "纯电",
+    "body_type": "SUV",
+    "range": 500,
+    "acceleration": 7.9,
+    "trunk_volume": 450,
+    "charging_time": 30,
+    "smart_drive_level": "L2",
+    "tags": [
+      "家用",
+      "性价比",
+      "智能"
+    ],
+    "pros": [
+      "价格实惠",
+      "空间实用",
+      "配置够用"
+    ],
+    "cons": [
+      "品牌影响力弱",
+      "续航一般"
+    ]
+  },
+  {
+    "id": "im-l8-2024",
+    "brand": "智己",
+    "model": "L8",
+    "price": 32.98,
+    "energy_type": "纯电",
+    "body_type": "SUV",
+    "range": 680,
+    "acceleration": 4.2,
+    "trunk_volume": 580,
+    "charging_time": 30,
+    "smart_drive_level": "L2+",
+    "tags": [
+      "豪华",
+      "大空间",
+      "智能"
+    ],
+    "pros": [
+      "空间超大",
+      "内饰豪华",
+      "科技感强"
+    ],
+    "cons": [
+      "价格偏高",
+      "品牌认知度一般"
+    ]
+  },
+  {
+    "id": "feifan-f9-2024",
+    "brand": "飞凡",
+    "model": "F9",
+    "price": 26.99,
+    "energy_type": "纯电",
+    "body_type": "轿车",
+    "range": 680,
+    "acceleration": 5,
+    "trunk_volume": 480,
+    "charging_time": 30,
+    "smart_drive_level": "L2+",
+    "tags": [
+      "轿车",
+      "性价比",
+      "舒适"
+    ],
+    "pros": [
+      "舒适性好",
+      "续航出色",
+      "价格实惠"
+    ],
+    "cons": [
+      "品牌小众",
+      "售后网点少"
+    ]
+  },
+  {
+    "id": "avatr-08-2024",
+    "brand": "阿维塔",
+    "model": "08",
+    "price": 28.99,
+    "energy_type": "纯电",
+    "body_type": "SUV",
+    "range": 720,
+    "acceleration": 4.3,
+    "trunk_volume": 520,
+    "charging_time": 12,
+    "smart_drive_level": "L2++",
+    "tags": [
+      "华为智驾",
+      "800V",
+      "轿跑SUV"
+    ],
+    "pros": [
+      "华为ADS智驾",
+      "800V快充",
+      "设计前卫"
+    ],
+    "cons": [
+      "价格偏高",
+      "品牌认知度一般"
+    ]
+  },
+  {
+    "id": "aito-m8-2024",
+    "brand": "问界",
+    "model": "M8",
+    "price": 31.98,
+    "energy_type": "增程",
+    "body_type": "SUV",
+    "range": 1300,
+    "acceleration": 5.8,
+    "trunk_volume": 620,
+    "charging_time": 30,
+    "smart_drive_level": "L2+",
+    "tags": [
+      "华为智驾",
+      "家用",
+      "无焦虑"
+    ],
+    "pros": [
+      "华为ADS智驾",
+      "无里程焦虑",
+      "空间大"
+    ],
+    "cons": [
+      "价格偏高",
+      "品牌认知度一般"
+    ]
+  },
+  {
+    "id": "volkswagen-id8-2024",
+    "brand": "大众",
+    "model": "ID.8",
+    "price": 32.98,
+    "energy_type": "纯电",
+    "body_type": "SUV",
+    "range": 600,
+    "acceleration": 6.5,
+    "trunk_volume": 650,
+    "charging_time": 30,
+    "smart_drive_level": "L2",
+    "tags": [
+      "大型SUV",
+      "家用",
+      "德系"
+    ],
+    "pros": [
+      "空间超大",
+      "德系品质",
+      "配置实用"
+    ],
+    "cons": [
+      "车机反应慢",
+      "价格偏高"
+    ]
+  },
+  {
+    "id": "toyota-crown-ev-2024",
+    "brand": "丰田",
+    "model": "皇冠 EV",
+    "price": 38.98,
+    "energy_type": "纯电",
+    "body_type": "轿车",
+    "range": 550,
+    "acceleration": 5.8,
+    "trunk_volume": 480,
+    "charging_time": 30,
+    "smart_drive_level": "L2",
+    "tags": [
+      "豪华",
+      "旗舰",
+      "可靠"
+    ],
+    "pros": [
+      "豪华品质",
+      "可靠性高",
+      "舒适性好"
+    ],
+    "cons": [
+      "价格偏高",
+      "科技配置一般"
+    ]
+  },
+  {
+    "id": "honda-legend-ev-2024",
+    "brand": "本田",
+    "model": "Legend EV",
+    "price": 35.98,
+    "energy_type": "纯电",
+    "body_type": "轿车",
+    "range": 520,
+    "acceleration": 6.2,
+    "trunk_volume": 470,
+    "charging_time": 30,
+    "smart_drive_level": "L2",
+    "tags": [
+      "豪华",
+      "商务",
+      "可靠"
+    ],
+    "pros": [
+      "舒适性好",
+      "可靠性高",
+      "操控灵活"
+    ],
+    "cons": [
+      "价格偏高",
+      "科技配置一般"
+    ]
+  },
+  {
+    "id": "audi-q3-etron-2024",
+    "brand": "奥迪",
+    "model": "Q3 e-tron",
+    "price": 27.98,
+    "energy_type": "纯电",
+    "body_type": "SUV",
+    "range": 450,
+    "acceleration": 7.8,
+    "trunk_volume": 430,
+    "charging_time": 30,
+    "smart_drive_level": "L2",
+    "tags": [
+      "豪华",
+      "紧凑",
+      "品牌"
+    ],
+    "pros": [
+      "奥迪品牌",
+      "操控灵活",
+      "做工精细"
+    ],
+    "cons": [
+      "续航一般",
+      "价格偏高"
     ]
   }
 ]

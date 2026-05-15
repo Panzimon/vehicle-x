@@ -60,4 +60,26 @@ export const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "plan_route",
+      description:
+        "规划驾车路线，查询两地距离和预计时间。当用户提到路线、距离、怎么去、多远时调用。",
+      parameters: {
+        type: "object",
+        properties: {
+          from: {
+            type: "string",
+            description: '起点，如"北京"或经纬度"116.397,39.909"',
+          },
+          to: {
+            type: "string",
+            description: '终点，如"天津"或经纬度"117.201,39.084"',
+          },
+        },
+        required: ["from", "to"],
+      },
+    },
+  },
 ];

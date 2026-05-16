@@ -2,7 +2,7 @@ import ollama from 'ollama'
 
 export interface Task {
   tool: string
-  params: Record<string, any>
+  params: Record<string, unknown>
   description: string
 }
 
@@ -69,11 +69,11 @@ export async function decomposeTasks(userQuery: string): Promise<Task[]> {
     throw new Error('Supervisor 未能生成有效任务列表')
   }
 
-  let jsonStr = jsonMatch[0]
+  const jsonStr = jsonMatch[0]
   console.log('提取的 JSON:', jsonStr)
 
   try {
-    return JSON.parse(jsonStr).map((t: any) => ({
+    return JSON.parse(jsonStr).map((t: Task) => ({
       tool: t.tool,
       params: t.params || {},
       description: t.description || '执行任务'
@@ -103,7 +103,7 @@ export async function decomposeTasks(userQuery: string): Promise<Task[]> {
       }
 
       console.log('修复后的 JSON:', fixed)
-      return JSON.parse(fixed).map((t: any) => ({
+      return JSON.parse(fixed).map((t: Task) => ({
         tool: t.tool,
         params: t.params || {},
         description: t.description || '执行任务'

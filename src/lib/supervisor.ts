@@ -60,6 +60,8 @@ export async function decomposeTasks(userQuery: string): Promise<Task[]> {
   })
 
   const content = response.message.content
+  console.log('Supervisor LLM 返回:', content)
+
   // 提取 JSON 数组部分
   const jsonMatch = content.match(/\[[\s\S]*?\]/)
 
@@ -67,16 +69,48 @@ export async function decomposeTasks(userQuery: string): Promise<Task[]> {
     throw new Error('Supervisor 未能生成有效任务列表')
   }
 
+  let jsonStr = jsonMatch[0]
+  console.log('提取的 JSON:', jsonStr)
+
   try {
-    const tasks = JSON.parse(jsonMatch[0])
-    // 标准化任务格式，确保每个任务都有必要的字段
-    return tasks.map((t: any) => ({
+    return JSON.parse(jsonStr).map((t: any) => ({
       tool: t.tool,
       params: t.params || {},
       description: t.description || '执行任务'
     }))
   } catch (error: unknown) {
-    console.error(error)
-    throw new Error('任务列表 JSON 解析失败')
+    // JSON 解析失败，尝试修复常见的不完整 JSON
+    console.warn('JSON 解析失败，尝试修复:', error)
+
+    // 尝试修复：补全缺失的闭合括号
+    // 常见问题：LLM 输出被截断，导致 } ] 等闭合符号缺失
+    try {
+      // 方法1：尝试补全常见的缺失模式
+      let fixed = jsonStr
+
+      // 统计括号数量，补全缺失的 }
+      const openBraces = (fixed.match(/\{/g) || []).length
+      const closeBraces = (fixed.match(/\}/g) || []).length
+      if (openBraces > closeBraces) {
+        fixed += '}'.repeat(openBraces - closeBraces)
+      }
+
+      // 统计方括号数量，补全缺失的 ]
+      const openBrackets = (fixed.match(/\[/g) || []).length
+      const closeBrackets = (fixed.match(/\]/g) || []).length
+      if (openBrackets > closeBrackets) {
+        fixed += ']'.repeat(openBrackets - closeBrackets)
+      }
+
+      console.log('修复后的 JSON:', fixed)
+      return JSON.parse(fixed).map((t: any) => ({
+        tool: t.tool,
+        params: t.params || {},
+        description: t.description || '执行任务'
+      }))
+    } catch (fixError) {
+      console.error('JSON 修复也失败:', fixError)
+      throw new Error('任务列表 JSON 解析失败')
+    }
   }
 }

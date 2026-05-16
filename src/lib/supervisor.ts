@@ -64,7 +64,7 @@ export async function decomposeTasks(userQuery: string): Promise<Task[]> {
 
 示例3（依赖任务 - 先搜再查详情）：
 [{"tool": "search_car_by_budget", "params": {"min_price": 20, "max_price": 30}, "description": "筛选20-30万车型"},
- {"tool": "get_car_detail", "params": {"car_id": "比亚迪汉"}, "description": "查询比亚迪汉详情", "depends_on": ["0"]}]
+ {"tool": "get_car_detail", "params": {"car_id": "byd-han-ev-2024"}, "description": "查询比亚迪汉详情", "depends_on": ["0"]}]
 
 只输出 JSON 数组，不要任何解释。`
       },

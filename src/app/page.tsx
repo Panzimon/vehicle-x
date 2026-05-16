@@ -66,7 +66,9 @@ export default function Home() {
   const cleanText = (text: string): string => {
     let cleaned = text;
     cleaned = cleaned.replace(/\.UltraCoder/g, '');
-    cleaned = cleaned.replace(/[\u0E00-\u0E7F]+/g, '');
+    // 过滤泰文所有区块（基础+扩展）
+    cleaned = cleaned.replace(/[\u0E00-\u0E7F]/g, '');
+    cleaned = cleaned.replace(/[\u0E8A-\u0EFF]/g, '');
     cleaned = cleaned.replace(/^\s+/, '');
     return cleaned;
   }
@@ -113,6 +115,7 @@ export default function Home() {
       const assistantMsgId = addMessage('', 'assistant', 'receiving')
         let receivedContent = false
         let hasToolDone = false
+        let hasReceivedValidText = false
 
         try {
           const res = await fetch('/api/chat', {
@@ -162,8 +165,14 @@ export default function Home() {
                 } else if (data.type === 'tool_done') {
                   hasToolDone = true
                 } else if (data.text) {
-                  // 只有收到tool_done后才开始接收文本内容，或者是直接对话（没有工具调用）
-                  if (hasToolDone || !hasToolDone && data.text.trim()) {
+                  // 有tool_done → 等tool_done后才收；无tool_done → 收到有效文本后开始收
+                  if (hasToolDone || hasReceivedValidText) {
+                    receivedContent = true
+                    updateMessage(assistantMsgId, { status: 'completed' })
+                    appendToMessage(assistantMsgId, data.text)
+                  } else if (!hasToolDone && data.text.trim()) {
+                    // tool_done未到但收到非空文本 → 第一个有效文本，追加并开始后续接收
+                    hasReceivedValidText = true
                     receivedContent = true
                     updateMessage(assistantMsgId, { status: 'completed' })
                     appendToMessage(assistantMsgId, data.text)
@@ -363,52 +372,54 @@ export default function Home() {
 
         <Card className="flex flex-col h-[700px] bg-white border-slate-200 rounded-2xl shadow-lg overflow-hidden">
           {/* 聊天区域 - 滚动 */}
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-            <div className="space-y-4">
-              {messages.map((msg) => (
-                <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    msg.role === 'user' 
-                      ? 'bg-gradient-to-br from-blue-500 to-purple-600' 
-                      : 'bg-slate-200'
-                  }`}>
-                    <span className={`text-xs font-bold ${msg.role === 'user' ? 'text-white' : 'text-slate-600'}`}>
-                      {msg.role === 'user' ? 'U' : 'AI'}
-                    </span>
-                  </div>
-                  <div className={`max-w-[70%] ${msg.role === 'user' ? 'text-right' : ''}`}>
-                    <div className={`inline-block px-4 py-2 rounded-2xl ${
+          <div className="flex-1 min-h-0">
+            <ScrollArea className="h-full p-4" ref={scrollRef}>
+              <div className="space-y-4">
+                {messages.map((msg) => (
+                  <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                       msg.role === 'user'
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-br-md'
-                        : 'bg-slate-100 text-slate-700 rounded-bl-md'
+                        ? 'bg-gradient-to-br from-blue-500 to-purple-600'
+                        : 'bg-slate-200'
                     }`}>
-                      {msg.status === 'receiving' && (
-                        <span className="flex items-center gap-1">
-                          <span className="inline-block w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
-                          <span className="inline-block w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
-                          <span className="inline-block w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
-                        </span>
-                      )}
-                      {msg.status !== 'receiving' && (
-                        <div className="text-sm leading-relaxed">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {msg.content}
-                          </ReactMarkdown>
-                        </div>
+                      <span className={`text-xs font-bold ${msg.role === 'user' ? 'text-white' : 'text-slate-600'}`}>
+                        {msg.role === 'user' ? 'U' : 'AI'}
+                      </span>
+                    </div>
+                    <div className={`max-w-[70%] ${msg.role === 'user' ? 'text-right' : ''}`}>
+                      <div className={`inline-block px-4 py-2 rounded-2xl ${
+                        msg.role === 'user'
+                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-br-md'
+                          : 'bg-slate-100 text-slate-700 rounded-bl-md'
+                      }`}>
+                        {msg.status === 'receiving' && (
+                          <span className="flex items-center gap-1">
+                            <span className="inline-block w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                            <span className="inline-block w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                            <span className="inline-block w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                          </span>
+                        )}
+                        {msg.status !== 'receiving' && (
+                          <div className="text-sm leading-relaxed">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {msg.content}
+                            </ReactMarkdown>
+                          </div>
+                        )}
+                      </div>
+                      {msg.status !== 'completed' && msg.status !== 'receiving' && (
+                        <span className="text-xs text-slate-400 mt-1 block">发送中...</span>
                       )}
                     </div>
-                    {msg.status !== 'completed' && msg.status !== 'receiving' && (
-                      <span className="text-xs text-slate-400 mt-1 block">发送中...</span>
-                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
 
           {/* 卡片显示区域 - 可选，固定高度 */}
           {(step === 'select_car' || step === 'show_detail' || routeInfo) && (
-            <div className="p-4 border-t border-slate-200 max-h-[300px] overflow-y-auto bg-slate-50">
+            <div className="p-4 border-t border-slate-200 max-h-[250px] overflow-y-auto bg-slate-50 shrink-0">
               {step === 'select_car' && carList.length > 0 && (
                 <div className="space-y-3">
                   {carList.map((car) => (

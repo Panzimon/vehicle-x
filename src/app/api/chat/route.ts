@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
         });
 
         let hasToolCalls = false;
+        let contentBuffer = ''; // 累积 content 用于检测跨 chunk 的 tool_call
+        let hasDetectedToolCall = false; // 标记是否已检测到 tool_call 开始
 
         for await (const chunk of response) {
           const content = chunk.message?.content;
@@ -81,12 +83,46 @@ export async function POST(req: NextRequest) {
           console.log('tool_calls:', toolCalls);
 
           if (!toolCalls && content) {
-            console.log('!toolCalls && content')
-            let funcMatch = content.match(/function_caller\(\s*(\{.*\})\s*\)/);
+            contentBuffer += content;
+            console.log('contentBuffer:', contentBuffer.substring(0, 100));
+            
+            // 检测 tool_call 开始标记
+            if (!hasDetectedToolCall && /<tool_call|function_caller|modne/.test(contentBuffer)) {
+              hasDetectedToolCall = true;
+              console.log('检测到 tool_call 开始标记');
+            }
+            
+            let funcMatch = contentBuffer.match(/function_caller\(\s*(\{[\s\S]*\})\s*\)/);
             if (!funcMatch) {
-              const xmlMatch = content.match(/<function_caller>\s*(\{.*\})\s*<\/function_caller>/);
+              const xmlMatch = contentBuffer.match(/<function_caller>\s*(\{[\s\S]*\})\s*<\/function_caller>/);
               if (xmlMatch) {
                 funcMatch = xmlMatch;
+              }
+            }
+            if (!funcMatch) {
+              const toolCallMatch = contentBuffer.match(/<tool_call>\s*(\{[\s\S]*\})\s*<\/tool_call>/);
+              if (toolCallMatch) {
+                funcMatch = toolCallMatch;
+              }
+            }
+            // 兼容没有标签的 JSON 格式（如 modne{"name":...}）
+            if (!funcMatch && hasDetectedToolCall) {
+              const jsonMatch = contentBuffer.match(/\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{[\s\S]*\})/);
+              if (jsonMatch) {
+                try {
+                  const argsEnd = contentBuffer.lastIndexOf('}');
+                  const argsStart = contentBuffer.indexOf('"arguments"');
+                  if (argsEnd > argsStart) {
+                    const fullJson = contentBuffer.substring(contentBuffer.indexOf('{'), argsEnd + 1);
+                    const parsed = JSON.parse(fullJson);
+                    if (parsed.name && parsed.arguments) {
+                      toolCalls = [{ function: parsed }];
+                      console.log('从累积内容中解析出工具调用:', toolCalls);
+                    }
+                  }
+                } catch {
+                  // 累积中，等待更多内容
+                }
               }
             }
             if (funcMatch) {
@@ -189,7 +225,19 @@ export async function POST(req: NextRequest) {
               console.log('=== 后续响应块 ===');
               console.log('followUpContent:', followUpContent ? followUpContent.substring(0, 100) + (followUpContent.length > 100 ? '...' : '') : 'null');
               if (followUpContent) {
-                send({ text: followUpContent });
+                // 过滤可疑内容
+                const trimmed = followUpContent.trim();
+                const isSuspicious = (
+                  trimmed.length < 2 ||
+                  /^[\d\s,.\-\u4e00-\u9fa5]*$/.test(trimmed) && trimmed.length < 5 ||
+                  /^\d+([,.]\d+)*$/.test(trimmed) ||
+                  /[\u0E00-\u0E7F]/.test(trimmed) // 泰文
+                );
+                if (!isSuspicious) {
+                  send({ text: followUpContent });
+                } else {
+                  console.log('忽略后续响应中的可疑内容:', trimmed);
+                }
               }
             }
 
@@ -203,7 +251,13 @@ export async function POST(req: NextRequest) {
             console.log('=== 直接发送内容 ===');
             console.log('content:', content ? content.substring(0, 100) + (content.length > 100 ? '...' : '') : 'null');
             
-            // 简单过滤：忽略只有数字、标点、或者太短的奇怪内容
+            // 如果已检测到 tool_call 开始，不再发送任何内容（避免发送乱码和 tool_call 片段）
+            if (hasDetectedToolCall) {
+              console.log('已检测到 tool_call，忽略内容:', content.trim());
+              continue;
+            }
+            
+            // 过滤可疑内容
             const trimmed = content.trim();
             const isSuspicious = (
               trimmed.length < 2 || // 太短
@@ -214,7 +268,7 @@ export async function POST(req: NextRequest) {
             if (!isSuspicious) {
               send({ text: content });
             } else {
-              console.log('忽略可疑初始内容:', trimmed);
+              console.log('忽略可疑内容:', trimmed);
             }
           }
         }

@@ -28,7 +28,7 @@ export const SearchCarArgsSchema = z.object({
   max_price: z.number().min(0).max(200),           // 最高预算（万元）
   energy_type: z.enum(['纯电', '插混', '增程', '燃油']).optional(),  // 能源类型（可选）
   body_type: z.enum(['轿车', 'SUV', 'MPV']).optional(),            // 车身类型（可选）
-  scene_tag: z.string().optional(),                // 用车场景标签（可选）
+  scene_tag: z.union([z.string(), z.array(z.string())]).optional(),  // 用车场景标签（可选，支持单个或多个）
 })
 
 // get_car_detail 工具参数校验

@@ -66,9 +66,12 @@ export default function Home() {
   const cleanText = (text: string): string => {
     let cleaned = text;
     cleaned = cleaned.replace(/\.UltraCoder/g, '');
-    // 过滤泰文所有区块（基础+扩展）
-    cleaned = cleaned.replace(/[\u0E00-\u0E7F]/g, '');
-    cleaned = cleaned.replace(/[\u0E8A-\u0EFF]/g, '');
+    // 过滤泰文
+    cleaned = cleaned.replace(/[\u0E00-\u0EFF]/g, '');
+    // 过滤扩展拉丁字符（土耳其语、法语等乱码）
+    cleaned = cleaned.replace(/[\u00C0-\u024F]/g, '');
+    // 过滤零宽字符和不可见控制字符
+    cleaned = cleaned.replace(/[\u200B-\u200F\uFEFF\u0000-\u001F\u007F]/g, '');
     cleaned = cleaned.replace(/^\s+/, '');
     return cleaned;
   }
@@ -88,11 +91,11 @@ export default function Home() {
 
   const appendToMessage = useCallback((id: string, text: string) => {
     setMessages(prev => {
-      const currentIsFirst = isFirstChunkRef.current;
-      if (currentIsFirst) {
+      if (isFirstChunkRef.current) {
         isFirstChunkRef.current = false;
       }
-      const cleanedText = currentIsFirst ? cleanText(text) : text;
+      // 所有内容都清理，防止乱码分散在多个 chunk 中
+      const cleanedText = cleanText(text);
       return prev.map(msg =>
         msg.id === id ? { ...msg, content: msg.content + cleanedText } : msg
       );
@@ -138,7 +141,7 @@ export default function Home() {
           }
 
           const reader = res.body.getReader()
-          const decoder = new TextDecoder()
+          const decoder = new TextDecoder('utf-8', { stream: true })
           let buffer = ''
 
           while (true) {
@@ -387,7 +390,7 @@ export default function Home() {
                       </span>
                     </div>
                     <div className={`max-w-[70%] ${msg.role === 'user' ? 'text-right' : ''}`}>
-                      <div className={`inline-block px-4 py-2 rounded-2xl ${
+                      <div className={`inline-block px-4 py-2 rounded-2xl break-all max-w-full ${
                         msg.role === 'user'
                           ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-br-md'
                           : 'bg-slate-100 text-slate-700 rounded-bl-md'

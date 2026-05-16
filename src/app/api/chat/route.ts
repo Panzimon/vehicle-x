@@ -86,8 +86,12 @@ export async function POST(req: NextRequest) {
             contentBuffer += content;
             console.log('contentBuffer:', contentBuffer.substring(0, 100));
             
-            // 检测 tool_call 开始标记
-            if (!hasDetectedToolCall && /<tool_call|function_caller|modne/.test(contentBuffer)) {
+            // 检测 tool_call 开始标记（包括标签、JSON 名值对、函数名前后有任意字符）
+            if (!hasDetectedToolCall && (
+              /<tool_call|function_caller|modne/.test(contentBuffer) ||
+              /"name"\s*:\s*"(search_car_by_budget|get_car_detail|compare_cars|plan_route)"/.test(contentBuffer) ||
+              /(search_car_by_budget|get_car_detail|compare_cars|plan_route)/.test(contentBuffer)
+            )) {
               hasDetectedToolCall = true;
               console.log('检测到 tool_call 开始标记');
             }
@@ -105,20 +109,18 @@ export async function POST(req: NextRequest) {
                 funcMatch = toolCallMatch;
               }
             }
-            // 兼容没有标签的 JSON 格式（如 modne{"name":...}）
+            // 兼容没有标签的 JSON 格式（模型直接把 JSON 当作 content 输出）
             if (!funcMatch && hasDetectedToolCall) {
-              const jsonMatch = contentBuffer.match(/\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{[\s\S]*\})/);
-              if (jsonMatch) {
+              // 尝试从累积内容中提取完整的 JSON 对象
+              const jsonStart = contentBuffer.indexOf('{');
+              const jsonEnd = contentBuffer.lastIndexOf('}');
+              if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                const jsonStr = contentBuffer.substring(jsonStart, jsonEnd + 1);
                 try {
-                  const argsEnd = contentBuffer.lastIndexOf('}');
-                  const argsStart = contentBuffer.indexOf('"arguments"');
-                  if (argsEnd > argsStart) {
-                    const fullJson = contentBuffer.substring(contentBuffer.indexOf('{'), argsEnd + 1);
-                    const parsed = JSON.parse(fullJson);
-                    if (parsed.name && parsed.arguments) {
-                      toolCalls = [{ function: parsed }];
-                      console.log('从累积内容中解析出工具调用:', toolCalls);
-                    }
+                  const parsed = JSON.parse(jsonStr);
+                  if (parsed.name && parsed.arguments) {
+                    toolCalls = [{ function: parsed }];
+                    console.log('从累积内容中解析出工具调用:', toolCalls);
                   }
                 } catch {
                   // 累积中，等待更多内容
@@ -225,18 +227,13 @@ export async function POST(req: NextRequest) {
               console.log('=== 后续响应块 ===');
               console.log('followUpContent:', followUpContent ? followUpContent.substring(0, 100) + (followUpContent.length > 100 ? '...' : '') : 'null');
               if (followUpContent) {
-                // 过滤可疑内容
                 const trimmed = followUpContent.trim();
-                const isSuspicious = (
-                  trimmed.length < 2 ||
-                  /^[\d\s,.\-\u4e00-\u9fa5]*$/.test(trimmed) && trimmed.length < 5 ||
-                  /^\d+([,.]\d+)*$/.test(trimmed) ||
-                  /[\u0E00-\u0E7F]/.test(trimmed) // 泰文
-                );
-                if (!isSuspicious) {
+                // follow-up 只过滤乱码，不过滤短内容（避免车型缩写如 C、R、S 被拦截）
+                const isGarbage = /[\u00C0-\u024F]/.test(trimmed) || /[\u0E00-\u0EFF]/.test(trimmed);
+                if (!isGarbage) {
                   send({ text: followUpContent });
                 } else {
-                  console.log('忽略后续响应中的可疑内容:', trimmed);
+                  console.log('忽略后续响应中的乱码:', trimmed);
                 }
               }
             }
@@ -259,20 +256,93 @@ export async function POST(req: NextRequest) {
             
             // 过滤可疑内容
             const trimmed = content.trim();
-            const isSuspicious = (
-              trimmed.length < 2 || // 太短
-              /^[\d\s,.\-\u4e00-\u9fa5]*$/.test(trimmed) && trimmed.length < 5 || // 只有少量中文和数字
-              /^\d+([,.]\d+)*$/.test(trimmed) // 只有数字
-            );
+            const isGarbage = /[\u00C0-\u024F]/.test(trimmed) || /[\u0E00-\u0EFF]/.test(trimmed);
             
-            if (!isSuspicious) {
+            if (!isGarbage) {
               send({ text: content });
             } else {
-              console.log('忽略可疑内容:', trimmed);
+              console.log('忽略乱码内容:', trimmed);
             }
           }
         }
 
+        // 流结束但模型没有调用工具 — 如果用户消息需要工具，自动兜底调用
+        if (!hasToolCalls && shouldUseTool(message)) {
+          console.log('模型未调用工具，执行兜底调用');
+          
+          interface ToolResult { tool: string; result: unknown; }
+          const toolResults: ToolResult[] = [];
+          let fallbackToolName = '';
+          let fallbackArgs: any = {};
+          
+          // 根据用户消息推断要调用的工具
+          if (/预算|多少钱|推荐|选车|价格|买车/.test(message)) {
+            fallbackToolName = 'search_car_by_budget';
+            const budgetMatch = message.match(/(\d+)/);
+            const budget = budgetMatch ? parseInt(budgetMatch[1]) : 20;
+            fallbackArgs = {
+              min_price: budget,
+              max_price: budget,
+              scene_tag: []
+            };
+            if (/通勤|上班|日常/.test(message)) fallbackArgs.scene_tag.push('通勤');
+            if (/露营|越野|户外|自驾/.test(message)) fallbackArgs.scene_tag.push('露营');
+            if (/家用|家庭|带娃|老人/.test(message)) fallbackArgs.scene_tag.push('家用');
+            if (/商务|接待|办公/.test(message)) fallbackArgs.scene_tag.push('商务');
+          } else if (/路线|距离|多远|怎么去|导航/.test(message)) {
+            fallbackToolName = 'plan_route';
+          } else if (/对比|比较/.test(message)) {
+            fallbackToolName = 'compare_cars';
+          }
+          
+          if (fallbackToolName) {
+            try {
+              if (fallbackToolName === 'search_car_by_budget') {
+                const result = searchCarByBudget(
+                  fallbackArgs.min_price,
+                  fallbackArgs.max_price,
+                  undefined,
+                  undefined,
+                  fallbackArgs.scene_tag.length > 0 ? fallbackArgs.scene_tag : undefined
+                );
+                toolResults.push({ tool: fallbackToolName, result: result.length > 0 ? result : { error: `未找到符合条件的车型` } });
+              } else if (fallbackToolName === 'plan_route') {
+                toolResults.push({ tool: fallbackToolName, result: { error: '请提供出发地和目的地' } });
+              } else if (fallbackToolName === 'compare_cars') {
+                toolResults.push({ tool: fallbackToolName, result: { error: '请提供要对比的车型' } });
+              }
+              
+              send({ type: 'tool_done', tools: toolResults });
+              
+              // 用工具结果再请求一次模型生成回复
+              const fallbackMessages: Message[] = [
+                ...messages,
+                { role: 'assistant', content: '', tool_calls: [{ function: { name: fallbackToolName, arguments: fallbackArgs } }] },
+                { role: 'tool', content: JSON.stringify(toolResults[0]?.result || {}) }
+              ];
+              
+              const fallbackResponse = await ollama.chat({
+                model: 'qwen2.5:7b',
+                messages: fallbackMessages,
+                stream: true,
+              });
+              
+              for await (const chunk of fallbackResponse) {
+                const text = chunk.message?.content;
+                if (text) {
+                  const trimmed = text.trim();
+                  const isGarbage = /[\u00C0-\u024F]/.test(trimmed) || /[\u0E00-\u0EFF]/.test(trimmed);
+                  if (!isGarbage) {
+                    send({ text });
+                  }
+                }
+              }
+            } catch (err: any) {
+              console.error('兜底调用失败:', err);
+            }
+          }
+        }
+        
         send({ done: true });
         controller.close();
 
@@ -287,7 +357,7 @@ export async function POST(req: NextRequest) {
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
+      "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     },

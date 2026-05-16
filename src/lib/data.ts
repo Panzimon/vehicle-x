@@ -126,7 +126,7 @@ export function searchCarByBudget(
   maxPrice: number,
   energyType?: string,
   bodyType?: string,
-  sceneTag?: string
+  sceneTag?: string | string[]
 ): Car[] {
   const cars = loadCars();
   
@@ -154,7 +154,9 @@ export function searchCarByBudget(
 
     // 如果指定了场景标签，在 tags、pros、cons、model 中语义匹配
     if (sceneTag) {
-      const keywords = sceneTag.split(/[,，、/\\]/).map((k) => k.trim()).filter(Boolean);
+      const keywords = Array.isArray(sceneTag)
+        ? sceneTag
+        : sceneTag.split(/[,，、/\\]/).map((k) => k.trim()).filter(Boolean);
       const carText = `${car.tags.join(" ")} ${car.pros.join(" ")} ${car.cons.join(" ")} ${car.model}`;
       const matched = keywords.some((kw) => matchSemantic(carText, kw));
       if (!matched) return false;

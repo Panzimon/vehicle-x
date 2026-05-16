@@ -6,7 +6,8 @@ import { join } from "path";
 import { SearchCarArgsSchema, CarSchema, Car } from "@/lib/schema";
 import { z } from "zod";
 import { tools } from "@/lib/tools";
-import { decomposeTasks, Task } from "@/lib/supervisor";import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { decomposeTasks, Task } from "@/lib/supervisor";
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { text } from "stream/consumers";
 
@@ -112,7 +113,8 @@ const CompareCarsArgsSchema = z.object({
 
 // ========== 工具执行器 ==========
 async function executeTool(task: Task) {
-  const { tool, params } = task
+  const tool = task?.tool || ''
+  const params = task?.params || {}
 
   console.table({ tool, params })
 

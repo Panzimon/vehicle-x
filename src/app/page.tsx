@@ -36,6 +36,11 @@ export default function Home() {
   const [abortCtrl, setAbortCtrl] = useState<AbortController | null>(null)
   const isFirstChunkRef = useRef(true)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // 按模式隔离聊天记录，切换模式时保存/恢复
+  const savedMessagesRef = useRef<{ chat: ChatMessage[], search: ChatMessage[] }>({
+    chat: [],
+    search: [],
+  })
 
   const generateId = () => {
     return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`
@@ -278,6 +283,9 @@ export default function Home() {
     setSelectedCar(null)
     setRouteInfo(null)
     isPlanningRouteRef.current = false
+    // 清空当前模式的消息（包括 state 和 ref 中的备份）
+    const switchableMode = mode as 'chat' | 'search'
+    savedMessagesRef.current[switchableMode] = []
     setMessages([])
     setInput('')
   }
@@ -292,8 +300,27 @@ export default function Home() {
   }
 
   function handleModeSwitch(newMode: Mode) {
+    if (newMode === mode) return
+
+    // 保存当前模式的消息到 ref（只处理 chat/search 切换）
+    const switchableMode = mode as 'chat' | 'search'
+    const switchableNewMode = newMode as 'chat' | 'search'
+    savedMessagesRef.current[switchableMode] = messages
+
+    // 恢复目标模式的消息
+    const restored = savedMessagesRef.current[switchableNewMode]
+    setMessages(restored)
+
+    // 只重置功能状态，保留聊天历史
+    abortCtrl?.abort()
+    setStep('input')
+    setCarList([])
+    setSelectedCar(null)
+    setRouteInfo(null)
+    isPlanningRouteRef.current = false
+    setInput('')
+
     setMode(newMode)
-    handleReset()
   }
 
   return (

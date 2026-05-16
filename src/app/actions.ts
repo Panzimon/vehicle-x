@@ -304,7 +304,7 @@ export async function planRouteAction(from: string, to: string) {
       }
     }) as any
 
-    console.log('高德 MCP 返回:', result)
+    console.log('高德 MCP 返回: result?.isError', result?.isError)
     // 解析高德返回的数据
     const routeData = result?.isError === false ? (result?.content?.[0]?.text
       ? JSON.parse(result?.content[0].text)

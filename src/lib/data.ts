@@ -65,10 +65,28 @@ export function searchCarByBudget(
   sceneTag?: string
 ): Car[] {
   const cars = loadCars();
-  return cars.filter((car) => {
-    if (car.price < minPrice || car.price > maxPrice) return false;
-    if (energyType && car.energy_type !== energyType) return false;
-    if (bodyType && car.body_type !== bodyType) return false;
+  
+  // 安全机制：如果预算范围太窄（小于等于5万），自动扩展
+  let adjustedMin = minPrice;
+  let adjustedMax = maxPrice;
+  if (maxPrice - minPrice <= 5) {
+    adjustedMin = Math.max(0, minPrice - 5);
+    adjustedMax = maxPrice + 5;
+    console.log('预算范围过窄，自动扩展:', { original: { minPrice, maxPrice }, adjusted: { adjustedMin, adjustedMax } });
+  }
+
+  console.log('searchCarByBudget 参数:', { adjustedMin, adjustedMax, energyType, bodyType, sceneTag })
+  
+  const results = cars.filter((car) => {
+    if (car.price < adjustedMin || car.price > adjustedMax) {
+      return false;
+    }
+    if (energyType && car.energy_type !== energyType) {
+      return false;
+    }
+    if (bodyType && car.body_type !== bodyType) {
+      return false;
+    }
 
     // 如果指定了场景标签，在 tags、pros、cons、model 中模糊匹配
     if (sceneTag) {
@@ -80,6 +98,9 @@ export function searchCarByBudget(
 
     return true;
   });
+
+  console.log('找到', results.length, '款车，详情:', results.map((c) => ({ id: c.id, price: c.price, body_type: c.body_type })))
+  return results;
 }
 
 /**

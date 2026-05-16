@@ -36,6 +36,7 @@ export async function decomposeTasks(userQuery: string): Promise<Task[]> {
 1. search_car_by_budget - 根据预算筛选车型
    - 参数：min_price（最低预算万元）、max_price（最高预算万元）、energy_type（纯电/插混/增程/燃油，可选）、body_type（轿车/SUV/MPV，可选）、scene_tag（露营/通勤/家用，可选）
    - 适用场景：用户提到预算、价格范围、推荐车型时
+   - 重要：预算范围要有合理的上下浮动！例如用户说"25万"，应该设为 min_price=20, max_price=30；用户说"30万左右"，设为 min_price=25, max_price=35
 
 2. compare_cars - 对比多款车型
    - 参数：car_ids（车型ID数组，格式为"品牌-车型-年份"，如"byd-han-ev-2024"）

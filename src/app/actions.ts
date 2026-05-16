@@ -1,35 +1,14 @@
 "use server";
 
 import ollama from "ollama";
-import { readFileSync } from "fs";
-import { join } from "path";
-import { SearchCarArgsSchema, CarSchema, Car } from "@/lib/schema";
-import { z } from "zod";
+import { SearchCarArgsSchema, GetCarDetailArgsSchema, CompareCarsArgsSchema } from "@/lib/schema";
 import { tools } from "@/lib/tools";
-import { decomposeTasks, Task } from "@/lib/supervisor";
+import { decomposeTasks, topologicalSort, Task } from "@/lib/supervisor";
+import { searchCarByBudget, getCarDetail, compareCars } from "@/lib/data";
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
-// 缓存已加载的车型数据，避免重复读取文件
-let tempCars: Car[] = []
-
-/**
- * 加载车型数据
- * 首次调用时从 cars.json 读取并验证数据格式，之后返回缓存
- */
-function loadCars() {
-  if (tempCars.length > 0) return tempCars;
-  const path = join(process.cwd(), "data", "cars.json");
-  const raw = JSON.parse(readFileSync(path, "utf-8"));
-  // normalize：加载时校验全部数据
-  const result = z.array(CarSchema).safeParse(raw);
-  if (!result.success) {
-    console.error("cars.json 数据格式错误:", result.error.issues);
-    throw new Error("车型数据校验失败，请检查 data/cars.json");
-  }
-  tempCars = result.data
-  return tempCars
-}
+// ========== 高德 MCP 相关 ==========
 
 // 高德 MCP Client 实例（懒加载）
 let amapClient: Client | null = null
@@ -75,98 +54,6 @@ async function getGeo(address: string): Promise<string> {
 }
 
 /**
- * 按预算筛选车型
- * @param minPrice - 最低预算（万元）
- * @param maxPrice - 最高预算（万元）
- * @param energyType - 能源类型（纯电/插混/增程/燃油），可选
- * @param bodyType - 车身类型（轿车/SUV/MPV），可选
- * @param sceneTag - 用车场景标签（露营/通勤/家用），可选
- */
-function searchCarByBudget(
-  minPrice: number,
-  maxPrice: number,
-  energyType?: string,
-  bodyType?: string,
-  sceneTag?: string,
-) {
-  const cars = loadCars()
-  return cars.filter((car) => {
-    if (car.price < minPrice || car.price > maxPrice) return false
-    if (energyType && car.energy_type !== energyType) return false
-    if (bodyType && car.body_type !== bodyType) return false
-
-    // 如果指定了场景标签，在 tags、pros、cons、model 中模糊匹配
-    if (sceneTag) {
-      const keywords = sceneTag.split(/[,，、]/).map(k => k.trim()).filter(Boolean)
-      const carText = `${car.tags.join(' ')} ${car.pros.join(' ')} ${car.cons.join(' ')} ${car.model}`
-      // 只要有一个关键词匹配就通过
-      const matched = keywords.some(kw => carText.includes(kw))
-      if (!matched) return false
-    }
-
-    return true
-  })
-}
-
-/**
- * 通过关键词模糊匹配车型
- * 支持通过 ID、品牌名、车型名进行匹配
- * @param keyword - 搜索关键词
- * @returns 匹配的车型，未找到返回 null
- */
-function findCarByKeyword(keyword: string): Car | null {
-  if (!keyword) return null
-  const cars = loadCars()
-  const lowerKeyword = keyword.toLowerCase().replace(/\s+/g, '')
-
-  return cars.find((car) => {
-    // 匹配 ID（如 "byd-han-ev-2024"）
-    const idMatch = car.id.toLowerCase().replace(/\s+/g, '').includes(lowerKeyword)
-    // 匹配品牌（如 "比亚迪"）
-    const brandMatch = car.brand.toLowerCase().replace(/\s+/g, '').includes(lowerKeyword)
-    // 匹配车型名（如 "汉 EV"）
-    const modelMatch = car.model.toLowerCase().replace(/\s+/g, '').includes(lowerKeyword)
-    return idMatch || brandMatch || modelMatch
-  }) || null
-}
-
-/**
- * 获取车型详情
- * @param carIdOrName - 车型ID或名称
- */
-function getCarDetail(carIdOrName: string) {
-  return findCarByKeyword(carIdOrName)
-}
-
-/**
- * 对比多款车型
- * @param carIdsOrNames - 车型ID或名称数组
- * @returns 车型对象数组
- */
-function compareCars(carIdsOrNames: string[]) {
-  const results: Car[] = []
-
-  for (const keyword of carIdsOrNames) {
-    const car = findCarByKeyword(keyword)
-    // 避免重复添加同一车型
-    if (car && !results.find((c) => c.id === car.id)) {
-      results.push(car)
-    }
-  }
-
-  return results
-}
-
-// ========== Zod Schema 定义 ==========
-const GetCarDetailArgsSchema = z.object({
-  car_id: z.string().min(1, "车型 ID 不能为空"),
-});
-
-const CompareCarsArgsSchema = z.object({
-  car_ids: z.array(z.string().min(1)).min(2, "至少需要 2 款车对比"),
-});
-
-/**
  * 工具执行器：根据任务类型执行相应的工具
  * @param task - 任务对象，包含工具名称和参数
  */
@@ -206,8 +93,8 @@ async function executeTool(task: Task) {
     return { tool, data: compareCars(args.car_ids) }
   }
   else if (tool === 'plan_route') {
-    const from = params.from as string || '未知出发地'
-    const to = params.to as string || '未知目的地'
+    const from = params.from || '未知出发地'
+    const to = params.to || '未知目的地'
 
     const result = await planRouteAction(from, to)
 
@@ -224,7 +111,13 @@ async function executeTool(task: Task) {
 
 /**
  * 复杂查询入口函数
- * 由 Supervisor 分解任务后执行，支持多种任务类型
+ * 由 Supervisor 分解任务后执行，支持 DAG 依赖并行调度
+ *
+ * 执行流程：
+ * 1. Supervisor 分解任务
+ * 2. 拓扑排序分层（无依赖的任务同一层）
+ * 3. 逐层执行：同层任务并行执行
+ * 4. 前置任务结果注入后续任务的上下文
  *
  * @param message - 用户的自然语言需求
  * @returns 包含执行结果的对象，根据任务类型返回不同格式
@@ -240,40 +133,90 @@ export async function complexQuery(message: string) {
       throw new Error('未生成有效任务')
     }
 
-    // Step 2: 执行第一个任务
-    const firstTask = tasks[0]
-    const result = await executeTool(firstTask)
+    // Step 2: 拓扑排序，分层并行调度
+    const levels = topologicalSort(tasks)
+    const allResults: any[] = []
+
+    // 逐层执行：同层任务并行，不同层串行
+    for (const levelTasks of levels) {
+      // 同一层的任务并行执行
+      const levelPromises = levelTasks.map(async (task, levelTaskIndex) => {
+        // 如果任务有依赖，从 allResults 中提取前置任务结果
+        if (task.depends_on && task.depends_on.length > 0) {
+          // 将依赖任务的结果注入 params
+          const resolvedParams = { ...task.params }
+          for (const depIndexStr of task.depends_on) {
+            const depIndex = parseInt(depIndexStr, 10)
+            const depResult = allResults[depIndex]
+            if (depResult) {
+              // 如果前置任务是搜索，将搜索结果的车型ID注入
+              if (depResult.tool === 'search_car_by_budget' && depResult.data) {
+                const cars = Array.isArray(depResult.data) ? depResult.data : []
+                // 尝试从车型名称匹配
+                if (task.tool === 'get_car_detail' && resolvedParams.car_id) {
+                  const matchedCar = cars.find((c: any) =>
+                    c.model.includes(resolvedParams.car_id) ||
+                    c.brand.includes(resolvedParams.car_id)
+                  )
+                  if (matchedCar) {
+                    resolvedParams.car_id = matchedCar.id
+                  }
+                }
+                // 如果需要 car_ids 数组，从搜索结果中提取
+                if (task.tool === 'compare_cars' && resolvedParams.car_ids) {
+                  const matchedCars = cars.filter((c: any) =>
+                    resolvedParams.car_ids.some((name: string) =>
+                      c.model.includes(name) || c.brand.includes(name)
+                    )
+                  )
+                  if (matchedCars.length > 0) {
+                    resolvedParams.car_ids = matchedCars.map((c: any) => c.id)
+                  }
+                }
+              }
+            }
+          }
+          task = { ...task, params: resolvedParams }
+        }
+
+        return executeTool(task)
+      })
+
+      const levelResults = await Promise.all(levelPromises)
+      allResults.push(...levelResults)
+    }
 
     const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2)
 
+    // 获取第一个任务的结果用于判断返回格式
+    const firstTask = tasks[0]
+    const firstResult = allResults[0]
+
     // 根据任务类型返回不同的结果格式
     if (firstTask.tool === 'search_car_by_budget') {
-      // 搜索模式：返回车型列表，前端展示列表供用户选择
       return {
         success: true,
         content: '',
         toolUsed: 'search_car_by_budget',
-        toolResult: [result],
+        toolResult: allResults,
         meta: {
           tasks: tasks.length,
-          parallel: false,
+          parallel: levels.length > 1 || (levels[0]?.length || 0) > 1,
           totalDuration: `${totalDuration}s`,
           query: message,
         },
       }
     } else if (firstTask.tool === 'compare_cars') {
-      // 对比模式：调用 LLM 生成对比报告
-      const compareData = result.data as any[]
+      const compareData = firstResult.data as any[]
       if (!compareData || compareData.length === 0) {
         return {
           success: true,
           content: '未找到指定的车型进行对比',
           toolUsed: 'compare_cars',
-          toolResult: [result],
+          toolResult: allResults,
         }
       }
 
-      // 调用 LLM 生成专业对比报告
       const finalResponse = await ollama.chat({
         model: "qwen2.5:7b",
         messages: [
@@ -293,23 +236,21 @@ export async function complexQuery(message: string) {
         success: true,
         content: finalResponse.message.content,
         toolUsed: 'compare_cars',
-        toolResult: [result],
+        toolResult: allResults,
       }
     } else if (firstTask.tool === 'get_car_detail') {
-      // 详情模式：返回单款车型详细信息
       return {
         success: true,
         content: '',
         toolUsed: 'get_car_detail',
-        toolResult: [result],
+        toolResult: allResults,
       }
     } else if (firstTask.tool === 'plan_route') {
-      // 路线规划模式：返回路线信息
       return {
         success: true,
         content: '',
         toolUsed: 'plan_route',
-        toolResult: [result],
+        toolResult: allResults,
         meta: {
           tasks: tasks.length,
           totalDuration: `${totalDuration}s`,
@@ -317,7 +258,6 @@ export async function complexQuery(message: string) {
         },
       }
     } else {
-      // 未知工具类型
       return {
         success: false,
         error: `未知工具类型: ${firstTask.tool}`,
@@ -326,7 +266,6 @@ export async function complexQuery(message: string) {
     }
   } catch (error: any) {
     console.error('complexQuery error:', error)
-    // 降级到 chatWithAI
     return chatWithAI(message)
   }
 }

@@ -32,8 +32,9 @@ export default function Home() {
   const [carList, setCarList] = useState<Car[]>([])
   const [selectedCar, setSelectedCar] = useState<Car | null>(null)
   const [routeInfo, setRouteInfo] = useState<any>(null)
+  const isPlanningRouteRef = useRef(false)
   const [abortCtrl, setAbortCtrl] = useState<AbortController | null>(null)
-  const [isFirstChunk, setIsFirstChunk] = useState(true)
+  const isFirstChunkRef = useRef(true)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const generateId = () => {
@@ -80,16 +81,16 @@ export default function Home() {
 
   const appendToMessage = useCallback((id: string, text: string) => {
     setMessages(prev => {
-      const currentIsFirst = isFirstChunk;
+      const currentIsFirst = isFirstChunkRef.current;
       if (currentIsFirst) {
-        setIsFirstChunk(false);
+        isFirstChunkRef.current = false;
       }
       const cleanedText = currentIsFirst ? cleanText(text) : text;
       return prev.map(msg =>
         msg.id === id ? { ...msg, content: msg.content + cleanedText } : msg
       );
     });
-  }, [isFirstChunk])
+  }, [])
 
   async function handleSend() {
     if (!input.trim()) return
@@ -102,7 +103,7 @@ export default function Home() {
       abortCtrl?.abort()
       const ctrl = new AbortController()
       setAbortCtrl(ctrl)
-      setIsFirstChunk(true)
+      isFirstChunkRef.current = true
 
       const assistantMsgId = addMessage('', 'assistant', 'receiving')
         let receivedContent = false
@@ -191,7 +192,7 @@ export default function Home() {
         }
     } else {
       const assistantMsgId = addMessage('', 'assistant', 'receiving')
-      setIsFirstChunk(true)
+      isFirstChunkRef.current = true
 
       const res = await complexQuery(input.trim()) as any
 
@@ -229,12 +230,12 @@ export default function Home() {
       setSelectedCar(res.data)
       setStep('show_detail')
       const msgId = addMessage('', 'assistant', 'receiving')
-      setIsFirstChunk(true)
+      isFirstChunkRef.current = true
       appendToMessage(msgId, `${res.data.brand} ${res.data.model} 详细参数：`)
       updateMessage(msgId, { status: 'completed' })
     } else {
       const msgId = addMessage('', 'assistant', 'receiving')
-      setIsFirstChunk(true)
+      isFirstChunkRef.current = true
       appendToMessage(msgId, res.error || `无法获取 "${car.brand} ${car.model}" 的详细信息，请稍后重试`)
       updateMessage(msgId, { status: 'completed' })
       setSelectedCar(null)
@@ -246,22 +247,27 @@ export default function Home() {
   async function handlePlanRoute(from: string, to: string) {
     if (loading) return
     setLoading(true)
+    isPlanningRouteRef.current = true
 
     const res = await planRouteAction(from, to) as any
+
+    // 如果已经被取消（用户点击了重新选车），不再更新状态
+    if (!isPlanningRouteRef.current) return
 
     if (res.success) {
       setRouteInfo(res.data)
       const msgId = addMessage('', 'assistant', 'receiving')
-      setIsFirstChunk(true)
+      isFirstChunkRef.current = true
       appendToMessage(msgId, `从 ${from} 到 ${to} 的路线规划：`)
       updateMessage(msgId, { status: 'completed' })
     } else {
       const msgId = addMessage('', 'assistant', 'receiving')
-      setIsFirstChunk(true)
+      isFirstChunkRef.current = true
       appendToMessage(msgId, res.error || '路线规划失败')
       updateMessage(msgId, { status: 'completed' })
     }
 
+    isPlanningRouteRef.current = false
     setLoading(false)
   }
 
@@ -271,8 +277,18 @@ export default function Home() {
     setCarList([])
     setSelectedCar(null)
     setRouteInfo(null)
+    isPlanningRouteRef.current = false
     setMessages([])
     setInput('')
+  }
+
+  function handleBackToCarList() {
+    // 如果正在规划路线，中断它
+    isPlanningRouteRef.current = false
+    setStep('select_car')
+    setSelectedCar(null)
+    setRouteInfo(null)
+    setLoading(false)
   }
 
   function handleModeSwitch(newMode: Mode) {
@@ -477,7 +493,7 @@ export default function Home() {
                           '规划路线'
                         )}
                       </Button>
-                      <Button variant="outline" onClick={handleReset} className="rounded-xl border-slate-200 h-10 hover:bg-slate-50">
+                      <Button variant="outline" onClick={handleBackToCarList} className="rounded-xl border-slate-200 h-10 hover:bg-slate-50">
                         重新选车
                       </Button>
                     </div>

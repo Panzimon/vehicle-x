@@ -219,6 +219,7 @@ export default function Home() {
   }
 
   async function handleViewDetail(car: Car) {
+    if (loading) return
     setLoading(true)
     setSelectedCar(car)
 
@@ -243,6 +244,7 @@ export default function Home() {
   }
 
   async function handlePlanRoute(from: string, to: string) {
+    if (loading) return
     setLoading(true)
 
     const res = await planRouteAction(from, to) as any
@@ -369,8 +371,8 @@ export default function Home() {
                   {carList.map((car) => (
                     <Card
                       key={car.id}
-                      className="p-4 bg-white border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer"
-                      onClick={() => handleViewDetail(car)}
+                      className="p-4 bg-white border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50"
+                      onClick={() => !loading && handleViewDetail(car)}
                     >
                       <div className="flex justify-between items-center gap-4">
                         <div className="flex-1 min-w-0">
@@ -386,8 +388,13 @@ export default function Home() {
                             ))}
                           </div>
                         </div>
-                        <Button size="sm" variant="ghost" className="shrink-0 text-blue-600 hover:bg-blue-50 h-8">
-                          详情 →
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          disabled={loading}
+                          className="shrink-0 text-blue-600 hover:bg-blue-50 h-8"
+                        >
+                          {loading ? '加载中...' : '详情 →'}
                         </Button>
                       </div>
                     </Card>
@@ -453,14 +460,22 @@ export default function Home() {
                         className="flex h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 flex-1 transition-all"
                       />
                       <Button
+                        disabled={loading}
                         onClick={() => {
                           const from = (document.getElementById('from-input') as HTMLInputElement)?.value
                           const to = (document.getElementById('to-input') as HTMLInputElement)?.value
                           if (from && to) handlePlanRoute(from, to)
                         }}
-                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 text-white rounded-xl h-10"
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 text-white rounded-xl h-10 disabled:opacity-50"
                       >
-                        规划路线
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            规划中
+                          </span>
+                        ) : (
+                          '规划路线'
+                        )}
                       </Button>
                       <Button variant="outline" onClick={handleReset} className="rounded-xl border-slate-200 h-10 hover:bg-slate-50">
                         重新选车

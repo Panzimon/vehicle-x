@@ -206,8 +206,8 @@ async function executeTool(task: Task) {
     return { tool, data: compareCars(args.car_ids) }
   }
   else if (tool === 'plan_route') {
-    const from = params.from || '未知出发地'
-    const to = params.to || '未知目的地'
+    const from = params.from as string || '未知出发地'
+    const to = params.to as string || '未知目的地'
 
     const result = await planRouteAction(from, to)
 

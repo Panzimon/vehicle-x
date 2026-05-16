@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { chatWithAI, complexQuery, getCarDetailAction, planRouteAction } from './actions'
+import { complexQuery, getCarDetailAction, planRouteAction } from './actions'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'

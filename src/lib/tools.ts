@@ -1,3 +1,9 @@
+/**
+ * 工具定义文件
+ * 定义 LLM 可调用的所有函数工具，用于 Ollama 的 function calling 能力
+ */
+
+// 搜索车型工具：根据预算筛选符合条件的车型
 export const tools = [
   {
     type: "function",
@@ -24,6 +30,7 @@ export const tools = [
       },
     },
   },
+  // 获取车型详情工具：根据车型ID查询详细参数
   {
     type: "function",
     function: {
@@ -41,6 +48,7 @@ export const tools = [
       },
     },
   },
+  // 对比车型工具：对比多款车型的核心参数
   {
     type: "function",
     function: {
@@ -60,6 +68,7 @@ export const tools = [
       },
     },
   },
+  // 路线规划工具：查询两地之间的驾车路线
   {
     type: "function",
     function: {

@@ -121,10 +121,15 @@ export default function Home() {
         let hasReceivedValidText = false
 
         try {
+          // 收集当前聊天模式下的历史消息（不含 receiving 状态的）
+          const history = messages
+            .filter(m => m.status === 'completed')
+            .map(m => ({ role: m.role, content: m.content }))
+          
           const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: input.trim() }),
+            body: JSON.stringify({ message: input.trim(), history }),
             signal: ctrl.signal,
           })
 
@@ -141,7 +146,7 @@ export default function Home() {
           }
 
           const reader = res.body.getReader()
-          const decoder = new TextDecoder('utf-8', { stream: true })
+          const decoder = new TextDecoder('utf-8')
           let buffer = ''
 
           while (true) {
@@ -172,7 +177,16 @@ export default function Home() {
                   if (hasToolDone || hasReceivedValidText) {
                     receivedContent = true
                     updateMessage(assistantMsgId, { status: 'completed' })
-                    appendToMessage(assistantMsgId, data.text)
+                    // tool_done 之后的第一条文本才补换行，后续不再补
+                    // 但先检查当前消息末尾是否已有换行，有则不加
+                    let prefix = ''
+                    if (hasToolDone && !hasReceivedValidText) {
+                      const currentContent = messages.find(m => m.id === assistantMsgId)?.content || ''
+                      const endsWithNewline = /[\n\r]$/.test(currentContent)
+                      prefix = endsWithNewline ? '' : '\n'
+                    }
+                    hasReceivedValidText = true
+                    appendToMessage(assistantMsgId, prefix + data.text)
                   } else if (!hasToolDone && data.text.trim()) {
                     // tool_done未到但收到非空文本 → 第一个有效文本，追加并开始后续接收
                     hasReceivedValidText = true
@@ -389,8 +403,8 @@ export default function Home() {
                         {msg.role === 'user' ? 'U' : 'AI'}
                       </span>
                     </div>
-                    <div className={`max-w-[70%] ${msg.role === 'user' ? 'text-right' : ''}`}>
-                      <div className={`inline-block px-4 py-2 rounded-2xl break-all max-w-full ${
+                    <div className={`max-w-[70%] ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                      <div className={`inline-block px-4 py-2 rounded-2xl break-all max-w-full text-left ${
                         msg.role === 'user'
                           ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-br-md'
                           : 'bg-slate-100 text-slate-700 rounded-bl-md'
@@ -403,8 +417,13 @@ export default function Home() {
                           </span>
                         )}
                         {msg.status !== 'receiving' && (
-                          <div className="text-sm leading-relaxed">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                              ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
+                              ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
+                              li: ({ children }) => <li className="mb-1">{children}</li>,
+                            }}>
                               {msg.content}
                             </ReactMarkdown>
                           </div>

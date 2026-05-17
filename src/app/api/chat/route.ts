@@ -36,8 +36,9 @@ function selectModel(message: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { message } = await req.json();
+  const { message, history } = await req.json();
   console.log('收到消息:', message);
+  console.log('历史消息:', history);
   
   const model = selectModel(message);
   console.log(`选择模型: ${model}`);
@@ -54,10 +55,20 @@ export async function POST(req: NextRequest) {
         const messages: Message[] = [
           {
             role: "system",
-            content: "你是一位专业的汽车选购顾问和出行助手。你可以调用以下工具来获取实时数据：\n\n1. plan_route - 规划驾车路线，查询两地距离和预计时间。当用户提到路线、距离、怎么去、多远时调用。\n2. search_car_by_budget - 根据预算筛选车型。当用户提到预算、价格、买车、推荐车型、选车时调用。\n3. get_car_detail - 获取车型详细参数。当用户询问某款具体车型的详细信息时调用。\n4. compare_cars - 对比多款车型。当用户要求对比不同车型时调用。\n\n请用中文回复。"
-          },
-          { role: "user", content: message }
+            content: "你是一位专业的汽车选购顾问和出行助手。你可以调用以下工具来获取实时数据：\n\n1. plan_route - 规划驾车路线，查询两地距离和预计时间。当用户提到路线、距离、怎么去、多远时调用。\n2. search_car_by_budget - 根据预算筛选车型。当用户提到预算、价格、买车、推荐车型、选车时调用。\n3. get_car_detail - 获取车型详细参数。当用户询问某款具体车型的详细信息时调用。\n4. compare_cars - 对比多款车型。当用户要求对比不同车型时调用。\n\n【重要约束】\n- 你不可以在回答里输出任何工具调用代码、变量名（如 $criteria、JSON 片段）；\n- 只输出自然语言回答，不要包含任何函数调用、参数片段；\n- 工具调用过程不需要用户看到，只输出最终结果；\n- 记住用户之前提到的预算、车型偏好、用车场景等信息，在后续对话中保持上下文一致。\n\n请用中文回复。"
+          }
         ];
+        
+        // 追加历史消息（如果前端传了）
+        if (Array.isArray(history) && history.length > 0) {
+          for (const h of history) {
+            if (h.role && h.content) {
+              messages.push({ role: h.role as any, content: h.content });
+            }
+          }
+        }
+        
+        messages.push({ role: "user", content: message });
 
         // const needsTools = shouldUseTool(message);
         // console.log(`是否需要工具调用: ${needsTools}`);
@@ -216,9 +227,16 @@ export async function POST(req: NextRequest) {
               });
             }
 
+            const followUpMessages = [
+              ...messages,
+              {
+                role: "system",
+                content: "【重要约束】如果你已经获取到了工具查询结果，请直接根据结果向用户推荐车型，不要反问用户。用自然语言列出推荐车型及其亮点。"
+              }
+            ];
             const followUpResponse = await ollama.chat({
               model: "qwen2.5:7b",
-              messages,
+              messages: followUpMessages,
               stream: true,
             });
 
@@ -315,15 +333,22 @@ export async function POST(req: NextRequest) {
               send({ type: 'tool_done', tools: toolResults });
               
               // 用工具结果再请求一次模型生成回复
+              const toolResultStr = JSON.stringify(toolResults[0]?.result || {});
               const fallbackMessages: Message[] = [
                 ...messages,
                 { role: 'assistant', content: '', tool_calls: [{ function: { name: fallbackToolName, arguments: fallbackArgs } }] },
-                { role: 'tool', content: JSON.stringify(toolResults[0]?.result || {}) }
+                { role: 'tool', content: toolResultStr }
               ];
               
               const fallbackResponse = await ollama.chat({
                 model: 'qwen2.5:7b',
-                messages: fallbackMessages,
+                messages: [
+                  ...fallbackMessages,
+                  {
+                    role: "system",
+                    content: "【重要约束】如果你已经获取到了工具查询结果，请直接根据结果向用户推荐车型，不要反问用户。用自然语言列出推荐车型及其亮点。"
+                  }
+                ],
                 stream: true,
               });
               

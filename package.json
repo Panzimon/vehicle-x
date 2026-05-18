@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "powershell -ExecutionPolicy Bypass -Command \"ollama list >$null 2>&1; if ($LASTEXITCODE -ne 0){Start-Process ollama -ArgumentList 'serve' -WindowStyle Hidden; Start-Sleep 3}; npx next dev\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

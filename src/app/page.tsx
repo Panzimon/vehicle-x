@@ -70,8 +70,13 @@ export default function Home() {
     cleaned = cleaned.replace(/[\u0E00-\u0EFF]/g, '');
     // 过滤扩展拉丁字符（土耳其语、法语等乱码）
     cleaned = cleaned.replace(/[\u00C0-\u024F]/g, '');
-    // 过滤零宽字符和不可见控制字符
-    cleaned = cleaned.replace(/[\u200B-\u200F\uFEFF\u0000-\u001F\u007F]/g, '');
+    // 过滤零宽字符和不可见控制字符（保留 \n=0x0A 和 \r=0x0D 换行符！）
+    cleaned = cleaned.replace(/[\u200B-\u200F\uFEFF\u0000-\u0009\u000B-\u000C\u000E-\u001F\u007F]/g, '');
+    // 修复模型输出的非标准 Markdown 列表格式（-后面没空格）
+    cleaned = cleaned.replace(/^(\d+)\.(?=[^\s])/gm, '$1. ');
+    cleaned = cleaned.replace(/^-(?=[^\s])/gm, '- ');
+    cleaned = cleaned.replace(/^\*\*(?=[^\s*])/gm, '** ');
+    cleaned = cleaned.replace(/^\*(?=[^\s*])/gm, '* ');
     cleaned = cleaned.replace(/^\s+/, '');
     return cleaned;
   }
@@ -626,7 +631,7 @@ export default function Home() {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    发送中
+                    思考中
                   </span>
                 ) : (
                   '发送'

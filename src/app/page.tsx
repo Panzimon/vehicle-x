@@ -72,11 +72,11 @@ export default function Home() {
     cleaned = cleaned.replace(/[\u00C0-\u024F]/g, '');
     // 过滤零宽字符和不可见控制字符（保留 \n=0x0A 和 \r=0x0D 换行符！）
     cleaned = cleaned.replace(/[\u200B-\u200F\uFEFF\u0000-\u0009\u000B-\u000C\u000E-\u001F\u007F]/g, '');
-    // 修复模型输出的非标准 Markdown 列表格式（-后面没空格）
+    // 修复模型输出的非标准 Markdown 列表格式（标记后缺空格）
+    // 只处理有序/无序列表；**加粗*斜体不需要额外空格，否则会破坏语法
     cleaned = cleaned.replace(/^(\d+)\.(?=[^\s])/gm, '$1. ');
-    cleaned = cleaned.replace(/^-(?=[^\s])/gm, '- ');
-    cleaned = cleaned.replace(/^\*\*(?=[^\s*])/gm, '** ');
-    cleaned = cleaned.replace(/^\*(?=[^\s*])/gm, '* ');
+    // - 后无空格，但排除连续的 -（分隔线 ---/---）
+    cleaned = cleaned.replace(/^-(?=[^\s\-])/gm, '- ');
     cleaned = cleaned.replace(/^\s+/, '');
     return cleaned;
   }
@@ -422,12 +422,28 @@ export default function Home() {
                           </span>
                         )}
                         {msg.status !== 'receiving' && (
-                          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                          <div className="text-sm leading-relaxed">
                             <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                               p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                              ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
-                              ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
-                              li: ({ children }) => <li className="mb-1">{children}</li>,
+                              h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-3">{children}</h1>,
+                              h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3">{children}</h2>,
+                              h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-2">{children}</h3>,
+                              ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-0.5">{children}</ul>,
+                              ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-0.5">{children}</ol>,
+                              li: ({ children }) => <li className="mb-0.5">{children}</li>,
+                              strong: ({ children }) => <strong className="font-semibold text-slate-800">{children}</strong>,
+                              em: ({ children }) => <em>{children}</em>,
+                              blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-300 pl-3 py-1 my-2 bg-blue-50/50 rounded-r text-slate-600 italic">{children}</blockquote>,
+                              code: ({ inline, children }: { inline?: boolean; children?: React.ReactNode }) =>
+                                inline
+                                  ? <code className="bg-slate-200 px-1.5 py-0.5 rounded text-xs font-mono text-red-600">{children}</code>
+                                  : <code className="block bg-slate-900 text-green-400 px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto my-2">{children}</code>,
+                              pre: ({ children }) => <pre className="bg-slate-900 rounded-lg overflow-x-auto my-2">{children}</pre>,
+                              a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline hover:text-blue-700">{children}</a>,
+                              hr: () => <hr className="my-3 border-slate-200" />,
+                              table: ({ children }) => <div className="overflow-x-auto my-2"><table className="min-w-full border-collapse border border-slate-200 text-sm">{children}</table></div>,
+                              th: ({ children }) => <th className="border border-slate-200 bg-slate-100 px-3 py-1.5 text-left font-semibold">{children}</th>,
+                              td: ({ children }) => <td className="border border-slate-200 px-3 py-1.5">{children}</td>,
                             }}>
                               {msg.content}
                             </ReactMarkdown>

@@ -63,7 +63,10 @@ export default function Home() {
     ))
   }, [])
   
-  const cleanText = (text: string): string => {
+  // ===== 文本清理函数 =====
+  
+  // 流式接收阶段使用：只过滤乱码和控制字符，保留原始格式
+  const cleanStreamText = (text: string): string => {
     let cleaned = text;
     cleaned = cleaned.replace(/\.UltraCoder/g, '');
     // 过滤泰文
@@ -72,10 +75,16 @@ export default function Home() {
     cleaned = cleaned.replace(/[\u00C0-\u024F]/g, '');
     // 过滤零宽字符和不可见控制字符（保留 \n=0x0A 和 \r=0x0D 换行符！）
     cleaned = cleaned.replace(/[\u200B-\u200F\uFEFF\u0000-\u0009\u000B-\u000C\u000E-\u001F\u007F]/g, '');
+    return cleaned;
+  }
+
+  // 最终渲染前使用：完整清理 + 修复跨 chunk 导致的非标准 Markdown 格式
+  const cleanFinalText = (text: string): string => {
+    let cleaned = cleanStreamText(text);
     // 修复模型输出的非标准 Markdown 列表格式（标记后缺空格）
-    // 只处理有序/无序列表；**加粗*斜体不需要额外空格，否则会破坏语法
+    // 此时是完整文本，能正确识别跨 chunk 的模式如 "-车身尺寸"
     cleaned = cleaned.replace(/^(\d+)\.(?=[^\s])/gm, '$1. ');
-    // - 后无空格，但排除连续的 -（分隔线 ---/---）
+    // - 后无空格，但排除连续的 -（分隔线 ---）
     cleaned = cleaned.replace(/^-(?=[^\s\-])/gm, '- ');
     cleaned = cleaned.replace(/^\s+/, '');
     return cleaned;
@@ -99,8 +108,8 @@ export default function Home() {
       if (isFirstChunkRef.current) {
         isFirstChunkRef.current = false;
       }
-      // 所有内容都清理，防止乱码分散在多个 chunk 中
-      const cleanedText = cleanText(text);
+      // 流式阶段只做基础清理，不修 Markdown 格式（避免跨 chunk 识别失败）
+      const cleanedText = cleanStreamText(text);
       return prev.map(msg =>
         msg.id === id ? { ...msg, content: msg.content + cleanedText } : msg
       );
@@ -445,7 +454,7 @@ export default function Home() {
                               th: ({ children }) => <th className="border border-slate-200 bg-slate-100 px-3 py-1.5 text-left font-semibold">{children}</th>,
                               td: ({ children }) => <td className="border border-slate-200 px-3 py-1.5">{children}</td>,
                             }}>
-                              {msg.content}
+                              {cleanFinalText(msg.content)}
                             </ReactMarkdown>
                           </div>
                         )}

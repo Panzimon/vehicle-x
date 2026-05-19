@@ -1,24 +1,29 @@
 # Vehicle-X 🚗
 
-基于本地大模型的多 Agent 汽车智能决策助手。
+基于本地大模型的多 Agent 汽车智能决策助手。融合高德地图 MCP 实时路线规划 + 120+ 款车型数据库，实现"选车-对比-规划出行"一站式对话体验。
 
 ## 核心特性
 
 - **全本地运行** - 无需 API Key，基于 Ollama 本地部署的 qwen2.5 模型
-- **MCP 协议** - 支持 Model Context Protocol，可扩展的工具调用系统
+- **MCP 协议** - 支持 Model Context Protocol，通过 Stdio 模式连接高德地图 MCP Server
 - **多 Agent 协作** - Supervisor-Worker 架构，支持复杂任务拆解与执行
-- **流式对话** - SSE 实时流式输出，打字机效果
-- **Function Calling** - 自动识别用户意图并调用对应工具
+- **流式对话** - SSE 实时流式输出，打字机效果，工具调用过程无缝衔接
+- **Function Calling** - 自动识别用户意图并调用对应工具，支持中文语义路由
 - **并行任务调度** - DAG 依赖图 + BFS 拓扑排序，支持任务并行执行
-- **流式工具调用中断** - 流式输出过程中检测工具调用，中断后恢复
+- **高德路线规划** - 集成高德地图 Web 服务，支持地址→经纬度→驾车路线全链路
+- **Markdown 渲染** - 支持 GFM 完整格式：列表、代码块、表格、加粗斜体等
+- **历史上下文** - 支持多轮对话记忆，保持选车偏好与预算信息连贯
 
 ## 技术栈
 
-- **前端**: Next.js 14 (App Router) + React 19 + shadcn/ui + Tailwind CSS
-- **后端**: Next.js Server Actions + Ollama SDK
-- **模型**: qwen2.5:14b (深度推理) + qwen2.5:7b (快速响应)
-- **向量库**: Chroma (本地向量存储)
-- **协议**: MCP (Model Context Protocol)
+| 层级 | 技术 |
+|------|------|
+| 前端 | Next.js 14 (App Router) + React 19 + shadcn/ui + Tailwind CSS |
+| 后端 | Next.js Server Actions + Route Handlers (SSE) |
+| 模型 | qwen2.5:14b（深度推理）+ qwen2.5:7b（快速响应）|
+| 工具协议 | MCP（Stdio 模式）+ Function Calling |
+| 外部数据 | 高德地图 Web 服务（地理编码 + 驾车路线）|
+| 本地数据 | JSON 文件数据库（120+ 车型）|
 
 ## 快速启动
 
@@ -30,7 +35,6 @@
 ```powershell
 ollama pull qwen2.5:14b
 ollama pull qwen2.5:7b
-ollama pull nomic-embed-text
 ```
 
 ### 安装依赖
@@ -40,13 +44,49 @@ cd vehicle-x
 npm install
 ```
 
-### 启动开发服务器
+### 配置环境变量（可选）
+
+```powershell
+# 创建 .env.local
+OLLAMA_HOST=http://localhost:11434
+AMAP_KEY=你的高德Web服务Key  # 用于路线规划，可选
+```
+
+### 启动
 
 ```powershell
 npm run dev
 ```
 
-打开 [http://localhost:3000](http://localhost:3000) 即可使用。
+Ollama 服务会自动检测并启动（若未运行），然后打开 [http://localhost:3000](http://localhost:3000) 即可使用。
+
+## 功能演示
+
+### 选车咨询
+
+```
+用户: 预算25万，有什么新能源SUV推荐？
+     ↓ 工具: search_car_by_budget
+     ↓ 筛选: 20-30万 / 新能源 / SUV
+     ↓ 回复车型列表及亮点
+```
+
+### 车型对比
+
+```
+用户: 对比一下比亚迪汉和特斯拉Model Y
+     ↓ 工具: compare_cars
+     ↓ 展示: 价格 / 续航 / 智驾 / 优缺点 横向对比
+```
+
+### 路线规划
+
+```
+用户: 从北京到上海怎么走？多远？
+     ↓ 工具: plan_route (高德MCP)
+     ↓ 地理编码: "北京" → "116.397,39.909"
+     ↓ 驾车路线: 距离 / 耗时 / 过路费 / 导航步骤
+```
 
 ## 项目结构
 
@@ -54,112 +94,78 @@ npm run dev
 vehicle-x/
 ├── src/
 │   ├── app/
-│   │   ├── actions.ts       # Server Actions (工具执行、任务调度)
-│   │   ├── api/
-│   │   │   └── chat/route.ts # SSE 流式聊天 API
-│   │   ├── page.tsx         # 主页面
-│   │   └── layout.tsx       # 布局组件
-│   ├── lib/
-│   │   ├── supervisor.ts    # 任务调度器 (DAG 拓扑排序)
-│   │   ├── tools.ts         # 工具定义
-│   │   ├── data.ts          # 数据操作模块
-│   │   └── schema.ts        # Zod 数据校验 Schema
-│   └── components/          # React 组件
+│   │   ├── page.tsx              # 主页面（含聊天 UI / 路线规划 UI）
+│   │   ├── layout.tsx            # 布局组件
+│   │   ├── actions.ts           # Server Actions（工具执行 / MCP 连接）
+│   │   └── api/
+│   │       └── chat/route.ts    # SSE 流式聊天 API
+│   └── lib/
+│       ├── supervisor.ts         # 任务调度器（DAG 拓扑排序）
+│       ├── tools.ts              # 工具定义（Function Calling Schema）
+│       ├── schema.ts             # Zod 数据校验 Schema
+│       └── data.ts               # 车型数据查询模块
 ├── data/
-│   └── cars.json            # 车型数据库
-└── public/                  # 静态资源
+│   └── cars.json                 # 车型数据库（120+ 款）
+├── start-all.ps1                 # 一键启动脚本
+└── package.json
 ```
 
-## 核心功能模块
+## 核心模块
 
-### 1. 任务调度器 (Supervisor)
+### Supervisor 任务调度器
 
-`src/lib/supervisor.ts` 负责将用户查询分解为工具调用任务，并进行依赖分析和并行调度：
+`src/lib/supervisor.ts` 将用户查询分解为工具调用任务，支持 DAG 依赖管理：
 
-- **任务分解**: 将自然语言查询转换为结构化任务列表
-- **依赖标记**: 支持 `depends_on` 字段标记任务依赖关系
-- **拓扑排序**: BFS 算法进行任务分层，无依赖的任务可并行执行
+- **任务分解**: 自然语言 → 结构化任务列表
+- **依赖标记**: `depends_on` 字段标注任务依赖关系
+- **拓扑分层**: BFS 算法将任务按依赖分层
+- **并行执行**: 同一层任务 `Promise.all` 并发执行
 
-### 2. SSE 流式处理
+### SSE 流式处理
 
-`src/app/api/chat/route.ts` 实现流式对话和工具调用中断：
+`src/app/api/chat/route.ts` 实现流式对话与工具调用：
 
-- **流式输出**: 实时推送模型响应，打字机效果
-- **工具检测**: 流式过程中实时检测 `tool_calls`
-- **中断恢复**: 检测到工具调用后中断文本流，执行工具，结果注入上下文后恢复流式输出
+- 流式输出实时推送模型响应，打字机效果
+- 流式过程中实时检测 `tool_calls`，自动中断并执行
+- 工具结果注入上下文后恢复流式输出
+- 多工具可并行调用，提高响应速度
 
-### 3. 工具系统
+### 高德地图 MCP 集成
 
-支持的工具类型：
+`src/app/actions.ts` 通过 MCP Stdio 模式连接高德地图：
 
-| 工具名 | 功能 | 参数 |
-|--------|------|------|
+```
+getAmapClient() → StdioClientTransport → npx @amap/amap-maps-mcp-server
+                                                         ↓
+                                              maps_geo（地理编码）
+                                              maps_direction_driving（驾车路线）
+```
+
+### 工具系统
+
+| 工具 | 功能 | 参数 |
+|------|------|------|
 | `search_car_by_budget` | 按预算筛选车型 | `min_price`, `max_price`, `energy_type`, `body_type`, `scene_tag` |
 | `get_car_detail` | 获取车型详情 | `car_id` |
 | `compare_cars` | 对比多款车型 | `car_ids` |
-| `plan_route` | 规划驾车路线 | `from`, `to` |
-
-### 4. 数据层
-
-`src/lib/data.ts` 提供车型数据的查询操作：
-
-- `loadCars()` - 加载车型数据
-- `findCarByKeyword()` - 模糊匹配车型
-- `searchCarByBudget()` - 按预算筛选
-- `getCarDetail()` - 获取车型详情
-- `compareCars()` - 对比车型
+| `plan_route` | 规划驾车路线（高德MCP）| `from`, `to` |
 
 ## 车型数据
 
-当前 `cars.json` 包含以下字段：
+`data/cars.json` 当前收录 120+ 款车型，字段如下：
 
 | 字段 | 说明 |
 |------|------|
-| id | 车型唯一标识 |
-| brand / model | 品牌与型号 |
-| price | 售价 (万元) |
-| energy_type | 能源类型 (纯电/插混/增程/燃油) |
-| body_type | 车身类型 (SUV/轿车/MPV) |
-| range | 续航里程 (km) |
-| acceleration | 零百加速 (秒) |
-| smart_drive_level | 智驾等级 |
-| tags | 场景标签 |
-| pros / cons | 优缺点 |
-
-## 并行任务调度说明
-
-系统支持 DAG（有向无环图）任务依赖管理：
-
-1. **任务依赖标记**: Supervisor 分解任务时标注依赖关系
-2. **拓扑排序分层**: 使用 BFS 算法将任务按依赖关系分层
-3. **同层并行执行**: 同一层的任务可以同时执行（使用 `Promise.all`）
-4. **跨层顺序执行**: 有依赖的任务等待前置任务完成后执行
-
-**示例流程**:
-
-用户查询："推荐25万SUV，然后对比比亚迪汉和特斯拉Model Y"
-
-```
-任务分解:
-├─ 任务0: search_car_by_budget (无依赖)
-├─ 任务1: get_car_detail("比亚迪汉") (依赖任务0)
-├─ 任务2: get_car_detail("特斯拉Model Y") (依赖任务0)
-└─ 任务3: compare_cars (依赖任务1, 任务2)
-
-拓扑分层:
-第1层: [任务0]              ← 先执行搜索
-第2层: [任务1, 任务2]       ← 同时获取两款车详情
-第3层: [任务3]              ← 最后对比
-```
-
-## 环境变量
-
-如需配置可选环境变量，创建 `.env.local`：
-
-```env
-OLLAMA_HOST=http://localhost:11434
-AMAP_KEY=your_amap_api_key  # 用于路线规划功能
-```
+| `id` | 车型唯一标识 |
+| `brand` / `model` | 品牌与型号 |
+| `price` | 售价（万元）|
+| `energy_type` | 能源类型（纯电 / 插混 / 增程 / 燃油）|
+| `body_type` | 车身类型（SUV / 轿车 / MPV）|
+| `range` | 续航里程（km）|
+| `acceleration` | 零百加速（秒）|
+| `smart_drive_level` | 智驾等级 |
+| `tags` | 场景标签（家用 / 商务 / 越野等）|
+| `pros` / `cons` | 优缺点 |
 
 ## License
 
